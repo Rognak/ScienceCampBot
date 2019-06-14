@@ -16,6 +16,6 @@ patterns = {
 # Параметры поиска. Вы можете задать свои настройки.
 search_settings = {
     "max_articles": 5,
-    "sources": search_sources[0],
+    "sources": search_sources,
     "content_type": "all"  #TODO books, monography, articles
 }
