@@ -2,6 +2,9 @@
 __pycache__
 */__pycache__
 
+#environment
+venv
+
 # IDE files
 .idea
 .vscode
