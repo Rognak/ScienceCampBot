@@ -10,4 +10,3 @@ class AParser(ABC):
     @abstractmethod
     def start_console(self):
         pass
-

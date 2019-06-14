@@ -1,6 +1,6 @@
 # caches
 __pycache__
-*/__pycache__
+**/__pycache__/*
 
 #environment
 venv
