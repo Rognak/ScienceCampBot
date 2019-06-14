@@ -1,6 +1,8 @@
 # caches
-__pycache__
-**/__pycache__/*
+BusinessLogic/__pycache__/
+Intefaces/__pycache__/
+__pycache__/
+*.pyc
 
 #environment
 venv
