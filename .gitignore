@@ -1,6 +1,6 @@
 # caches
-BusinessLogic/__pycache__/
-Intefaces/__pycache__/
+# BusinessLogic/__pycache__/
+# Intefaces/__pycache__/
 __pycache__/
 *.pyc
 
