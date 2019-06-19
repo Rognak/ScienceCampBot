@@ -57,9 +57,13 @@ ADD_TAGS_KEYBOARD = [['Автор', 'Год издания', 'Название']
 SETTINGS_KEYBOARD = [['Максимальное число результатов', 'Стандартная база данных поиска'], 
                      ['Назад']]
 
+RESULTS_KEYBOARD = [['Следующий результат', 'Предыдущий результат'], 
+                    ['Назад']]
+
 SEARCH_MARKUP = ReplyKeyboardMarkup(SEARCH_KEYBOARD, one_time_keyboard=True)
 TAGS_MARKUP = ReplyKeyboardMarkup(ADD_TAGS_KEYBOARD, one_time_keyboard=True)
 SETTINGS_MARKUP = ReplyKeyboardMarkup(SETTINGS_KEYBOARD, one_time_keyboard=True)
+RESULTS_MARKUP = ReplyKeyboardMarkup(RESULTS_KEYBOARD, one_time_keyboard=True)
 
 def start(bot, update):
     """Starts conversation"""
@@ -105,7 +109,7 @@ def regular_choice(bot, update, context=None, user_data=None):
     user_data['choice'] = text
     if user_data.get('Запрос'):
         del user_data['Запрос']
-    
+
     if text == 'Назад':
         bot.send_message(chat_id=update.message.chat_id,
                          text='Возвращаюсь в простой поиск.',
@@ -118,11 +122,21 @@ def regular_choice(bot, update, context=None, user_data=None):
                          " {} "
                          "Подождите немного...".format(
                             facts_to_str(user_data)),
-                         reply_markup=TAGS_MARKUP)
+                         reply_markup=RESULTS_MARKUP)
         # parser = EntryPoint.MainParser(search_settings)
         # results = parser.search(user_data['Запрос'], max_res=50)
-        
-        return CHOOSING
+        results = ['Боба Фетт', 'Старый Штиблет', 'Водка, Черти, Пистолет']
+        user_data['results'] = results
+        user_data['pagination'] = 0
+        result = user_data['results'][user_data['pagination']]
+        bot.send_message(chat_id=update.message.chat_id,
+                         text="Может вам подойдет это:\n"
+                              " {} \n"
+                              "Чтобы показать другие результаты, нажмите "
+                              "'Следующий результат' или 'Предыдущий результат'."
+                              " Для возврата к поиску, нажмите 'Назад'".format(
+                                  result), reply_markup=RESULTS_MARKUP)
+        return SEARCH_RESULTLS
     else:
         bot.send_message(chat_id=update.message.chat_id,
                          text='Назовёте "{}"? Это может мне помочь!'.format(text.lower()))
@@ -153,6 +167,49 @@ def received_information(bot, update, context=None, user_data=None):
 
     return CHOOSING
 
+def received_search_results(bot, update, context=None, user_data=None):
+    """Shows results of the search one by one"""
+    text = update.message.text
+    if len(user_data['results']) == 0:
+        if user_data.get('Запрос'):
+            user_request = user_data['Запрос']
+        else:
+            user_request = facts_to_str(user_data)
+        bot.send_message(chat_id=update.message.chat_id,
+                         text="Ничего не найдено для '{}'...".format(
+                             user_request), reply_markup=SEARCH_MARKUP)
+        return IDLE
+    else:
+        if text == 'Следующий результат':
+            if user_data['pagination'] < len(user_data['results'])-1:
+                user_data['pagination'] += 1
+                result = user_data['results'][user_data['pagination']]
+                bot.send_message(chat_id=update.message.chat_id,
+                                 text="Может вам подойдет это:\n"
+                                      " {} \n"
+                                      "Чтобы показать другие результаты, нажмите "
+                                      "'Следующий результат' или 'Предыдущий результат'."
+                                      " Для возврата к поиску, нажмите 'Назад'".format(
+                                          result), reply_markup=RESULTS_MARKUP)
+            else:
+                bot.send_message(chat_id=update.message.chat_id,
+                                 text="Это последний из найденных результатов.")
+        elif text == 'Предыдущий результат':
+            if not user_data['pagination'] == 0:
+                user_data['pagination'] -= 1
+                result = user_data['results'][user_data['pagination']]
+                bot.send_message(chat_id=update.message.chat_id,
+                                 text="Может вам подойдет это:\n"
+                                      " {} \n"
+                                      "Чтобы показать другие результаты, нажмите "
+                                      "'Следующий результат' или 'Предыдущий результат'."
+                                      " Для возврата к поиску, нажмите 'Назад'".format(
+                                          result), reply_markup=RESULTS_MARKUP)
+            else:
+                bot.send_message(chat_id=update.message.chat_id,
+                                 text="Это первый из найденных результатов.")
+        return SEARCH_RESULTLS
+
 def idle_callback(bot, update, context=None, user_data=None):
     """Commits search type"""
     # user_data = context.user_data
@@ -163,12 +220,22 @@ def idle_callback(bot, update, context=None, user_data=None):
         if user_data.get('Запрос'):
             bot.send_message(chat_id=update.message.chat_id,
                              text="Ищу '{}'".format(user_data['Запрос']),
-                             reply_markup=SEARCH_MARKUP)
+                             reply_markup=RESULTS_MARKUP)
             # Some search actions
             # parser = EntryPoint.MainParser(search_settings)
             # results = parser.search(user_data['Запрос'], max_res=50)
-
-            return IDLE
+            results = ['Боба Фетт', 'Старый Штиблет', 'Водка, Черти, Пистолет']
+            user_data['results'] = results
+            user_data['pagination'] = 0
+            result = user_data['results'][user_data['pagination']]
+            bot.send_message(chat_id=update.message.chat_id,
+                             text="Может вам подойдет это:\n"
+                                  " {} \n"
+                                  "Чтобы показать другие результаты, нажмите "
+                                  "'Следующий результат' или 'Предыдущий результат'."
+                                  " Для возврата к поиску, нажмите 'Назад'".format(
+                                      result), reply_markup=RESULTS_MARKUP)
+            return SEARCH_RESULTLS
         else:
             bot.send_message(chat_id=update.message.chat_id,
                              text="Кажется вы пока не ввели никакого "
@@ -209,11 +276,11 @@ def settings_callback(bot, update, context=None, user_data=None):
         context.user_data['choice'] = text
     if text == 'Назад':
         bot.send_message(chat_id=update.message.chat_id,
-                     text='Завершаем смену настроек', reply_markup=SEARCH_MARKUP)
+                         text='Завершаем смену настроек', reply_markup=SEARCH_MARKUP)
         return IDLE
     else:
         bot.send_message(chat_id=update.message.chat_id,
-                     text='Назовёте {}? Просто напишите значение мне в ответ'.format(text.lower()), reply_markup=SETTINGS_MARKUP)
+                         text='Назовёте {}? Просто напишите значение мне в ответ'.format(text.lower()), reply_markup=SETTINGS_MARKUP)
         return SETTING_CHANGING
 
 def received_setting_value(bot, update, context=None, user_data=None):
@@ -293,6 +360,13 @@ def main():
                                    idle_callback,
                                    pass_user_data=True
                                   )],
+            SEARCH_RESULTLS: [RegexHandler('^(Следующий результат|Предыдущий результат)$',
+                                           received_search_results,
+                                           pass_user_data=True),
+                              RegexHandler('^Назад$',
+                                           back_to_idle,
+                                           pass_user_data=True),
+                             ],
 
             SETTING_CHOOSING: [RegexHandler('^(Максимальное число результатов|Стандартная база данных поиска|Назад)$',
                                             settings_callback,
