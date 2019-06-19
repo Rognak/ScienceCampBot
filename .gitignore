@@ -3,6 +3,7 @@
 # Intefaces/__pycache__/
 __pycache__/
 *.pyc
+renders/
 
 #environment
 venv
