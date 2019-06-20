@@ -1,10 +1,10 @@
-# {page_title}
-
-## Авторы:
+        {page_title}
+    Авторы:
 {authors}
-
-## DOI:
+    DOI:
 {DOI}
-
-## Аннотация:
+    Аннотация:
+  Оригинал:
 {annotation}
+  Перевод (Русский)
+{translation}

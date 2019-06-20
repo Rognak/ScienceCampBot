@@ -15,6 +15,7 @@ import json
 import requests
 import telegram
 import traceback
+from googletrans import Translator
 from telegram import ParseMode
 from telegram import ReplyKeyboardMarkup
 from telegram.ext import (Updater, CommandHandler, MessageHandler, Filters, RegexHandler,
@@ -30,8 +31,6 @@ logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s
 LOGGER = logging.getLogger(__name__)
 
 IDLE, SEARCH_RESULTLS, CHOOSING, TYPING_CHOICE, SETTING_CHANGING, SETTING_CHOOSING, TYPING_REPLY = range(7)
-
-RENDERED_VIEWS = []
 
 SETTINGS_STRINGS = """\n
 \r'Максимальное число результатов' - определяет, сколько статей найти (сейчас - {0});\n
@@ -55,6 +54,8 @@ if not os.path.exists('renders'):
     os.mkdir('renders')
 if not os.path.exists('downloads'):
     os.mkdir('downloads')
+
+TRANSLATOR = Translator()
 
 SEARCH_KEYBOARD = [['Искать!', 'Мои настройки'],
                    ['Продвинутый поиск']
@@ -123,16 +124,17 @@ def results_to_str(search_results):
             #                                   annotation=annotation,
             #                                   download_link=download_link,
             #                                  ))
-            filename = 'renders/{}.md'.format(DOI)
-            html_pages.append([filename, download_link, DOI])
+            # filename = 'renders/{}.md'.format(DOI)
             rendered_authors = ''.join(' * ' + author + '\n' for author in authors)
-            with open(filename, 'w+', encoding='UTF-8') as ofile:
-                ofile.write(template.format(page_title=title,
-                                            authors=rendered_authors,
-                                            DOI=DOI,
-                                            annotation=annotation,
-                                            # download_link=download_link,
-                                            ))
+            file_content = template.format(page_title=title,
+                                           authors=rendered_authors,
+                                           DOI=DOI,
+                                           annotation=annotation,
+                                           translation=TRANSLATOR.translate(annotation, 
+                                                                            dest='ru').text
+                                           # download_link=download_link,
+                                          )
+            html_pages.append([file_content, download_link, DOI])
     return html_pages
 
 def back_to_idle(bot, update, context=None, user_data=None):
@@ -144,7 +146,6 @@ def back_to_idle(bot, update, context=None, user_data=None):
 
 def regular_choice(bot, update, context=None, user_data=None):
     """Gets regular category from the keyboard for extended search"""
-    global RENDERED_VIEWS
 
     text = update.message.text
     # if user_data:
@@ -169,11 +170,10 @@ def regular_choice(bot, update, context=None, user_data=None):
         bot.send_chat_action(chat_id=update.message.chat_id, action=telegram.ChatAction.TYPING)
         # parser = EntryPoint.MainParser(search_settings)
         # results = parser.search(user_data['Запрос'], max_res=50)
-        results = [['Боба Фетт', ['ХЗ'], '3545465', 'нет', 'https://github.com/dhansel/Altair8800/raw/master/Documentation.pdf'],
-                   ['Старый Штиблет', ['Сатана', 'Я'], '1244567', 'нет', 'https://github.com/dhansel/Altair8800/raw/master/Documentation.pdf'],
-                   ['Водка, Черти, Пистолет', ['Я'], '454554', 'нет', 'https://github.com/dhansel/Altair8800/raw/master/Documentation.pdf']]
-        RENDERED_VIEWS = results_to_str(results)
-        user_data['results'] = RENDERED_VIEWS
+        results = [['Боба Фетт', ['ХЗ'], '3545465', 'Fugler snakker aus mennen und jeg leker under bordet', 'https://github.com/dhansel/Altair8800/raw/master/Documentation.pdf'],
+                   ['Старый Штиблет', ['Сатана', 'Я'], '1244567', 'London is the capital of Great Britain!', 'https://github.com/dhansel/Altair8800/raw/master/Documentation.pdf'],
+                   ['Водка, Черти, Пистолет', ['Я'], '454554', 'London is the capital of Great Britain!', 'https://github.com/dhansel/Altair8800/raw/master/Documentation.pdf']]
+        user_data['results'] = results_to_str(results)
         user_data['pagination'] = 0
         result = user_data['results'][user_data['pagination']]
         bot.send_message(chat_id=update.message.chat_id,
@@ -235,8 +235,8 @@ def received_search_results(bot, update, context=None, user_data=None):
                                  text="Может вам подойдет это:\n",
                                  reply_markup=RESULTS_MARKUP)
                 bot.send_message(chat_id=update.message.chat_id,
-                                 text=open(result[0], 'r', encoding='UTF-8').read(),
-                                #  parse_mode=ParseMode.MARKDOWN
+                                 text=result[0],
+                                #  parse_mode="MARKDOWN"
                                 )
                 bot.send_message(chat_id=update.message.chat_id,
                                  text="Чтобы показать другие результаты, нажмите "
@@ -249,7 +249,8 @@ def received_search_results(bot, update, context=None, user_data=None):
         elif text == 'Скачать':
             result = user_data['results'][user_data['pagination']]
             try:
-                bot.send_chat_action(chat_id=update.message.chat_id, action=telegram.ChatAction.UPLOAD_DOCUMENT)
+                bot.send_chat_action(chat_id=update.message.chat_id, 
+                                     action=telegram.ChatAction.UPLOAD_DOCUMENT)
                 local_file = download_it(result[1], result[2])
                 bot.send_document(chat_id=update.message.chat_id,
                                 #   caption="А вот и файл:",
@@ -267,8 +268,8 @@ def received_search_results(bot, update, context=None, user_data=None):
                                  text="Может вам подойдет это:\n",
                                  reply_markup=RESULTS_MARKUP)
                 bot.send_message(chat_id=update.message.chat_id,
-                                 text=open(result[0], 'r', encoding='UTF-8').read(),
-                                #  parse_mode=ParseMode.MARKDOWN
+                                 text=result[0],
+                                #  parse_mode="MARKDOWN"
                                 )
                 bot.send_message(chat_id=update.message.chat_id,
                                  text="Чтобы показать другие результаты, нажмите "
@@ -282,7 +283,6 @@ def received_search_results(bot, update, context=None, user_data=None):
 
 def idle_callback(bot, update, context=None, user_data=None):
     """Commits search type"""
-    global RENDERED_VIEWS
 
     # user_data = context.user_data
     current_action = update.message.text
@@ -297,24 +297,19 @@ def idle_callback(bot, update, context=None, user_data=None):
             # Some search actions
             # parser = EntryPoint.MainParser(search_settings)
             # results = parser.search(user_data['Запрос'], max_res=50)
-            results = [['Боба Фетт', ['ХЗ'], '435465', 'нет', 'https://github.com/dhansel/Altair8800/raw/master/Documentation.pdf'],
-                       ['Старый Штиблет', ['Сатана', 'Я'], '2434565', 'нет', 'https://github.com/dhansel/Altair8800/raw/master/Documentation.pdf'],
-                       ['Водка, Черти, Пистолет', ['Я'], '454554', 'нет', 'https://github.com/dhansel/Altair8800/raw/master/Documentation.pdf']]
-            RENDERED_VIEWS = results_to_str(results)
-            user_data['results'] = RENDERED_VIEWS
+            results = [['Боба Фетт', ['ХЗ'], '435465', 'Kattenen sover overfor bordet', 'https://github.com/dhansel/Altair8800/raw/master/Documentation.pdf'],
+                       ['Старый Штиблет', ['Сатана', 'Я'], '2434565', 'London is the capital of Great Britain!', 'https://github.com/dhansel/Altair8800/raw/master/Documentation.pdf'],
+                       ['Водка, Черти, Пистолет', ['Я'], '454554', 'London is the capital of Great Britain!', 'https://github.com/dhansel/Altair8800/raw/master/Documentation.pdf']]
+            user_data['results'] = results_to_str(results)
             user_data['pagination'] = 0
             result = user_data['results'][user_data['pagination']]
             bot.send_message(chat_id=update.message.chat_id,
                              text="Может вам подойдет это:\n",
                              reply_markup=RESULTS_MARKUP)
             bot.send_message(chat_id=update.message.chat_id,
-                             text=open(result[0], 'r', encoding='UTF-8').read(),
-                            #  parse_mode='MARKDOWN'
+                             text=result[0],
+                            #  parse_mode="MARKDOWN"
                             )
-            # bot.send_document(chat_id=update.message.chat_id,
-            #                   caption=open(result, 'r', encoding='UTF-8').read(),
-            #                   document=open(result, 'rt').read(),
-            #                   parse_mode=ParseMode.MARKDOWN)
             bot.send_message(chat_id=update.message.chat_id,
                              text="Чтобы показать другие результаты, нажмите "
                                   "'Следующий результат' или 'Предыдущий результат'."
