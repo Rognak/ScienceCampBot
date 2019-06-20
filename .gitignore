@@ -4,6 +4,7 @@
 __pycache__/
 *.pyc
 renders/
+downloads/
 
 #environment
 venv

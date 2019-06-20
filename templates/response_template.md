@@ -8,5 +8,3 @@
 
 ## Аннотация:
 {annotation}
-    
-(Скачать)[{download_link}]

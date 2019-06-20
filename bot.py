@@ -14,6 +14,7 @@ import logging
 import json
 import requests
 import telegram
+import traceback
 from telegram import ParseMode
 from telegram import ReplyKeyboardMarkup
 from telegram.ext import (Updater, CommandHandler, MessageHandler, Filters, RegexHandler,
@@ -50,6 +51,11 @@ with open('api.json', 'r', encoding='UTF-8') as file:
     __URL__ = data['URL']
     del data
 
+if not os.path.exists('renders'):
+    os.mkdir('renders')
+if not os.path.exists('downloads'):
+    os.mkdir('downloads')
+
 SEARCH_KEYBOARD = [['Искать!', 'Мои настройки'],
                    ['Продвинутый поиск']
                   ]
@@ -62,7 +68,7 @@ ADD_TAGS_KEYBOARD = [['Автор', 'Год издания', 'Название']
 SETTINGS_KEYBOARD = [['Максимальное число результатов', 'Стандартная база данных поиска'], 
                      ['Назад']]
 
-RESULTS_KEYBOARD = [['Следующий результат', 'Предыдущий результат'], 
+RESULTS_KEYBOARD = [['Следующий результат', 'Скачать', 'Предыдущий результат'], 
                     ['Назад']]
 
 SEARCH_MARKUP = ReplyKeyboardMarkup(SEARCH_KEYBOARD, one_time_keyboard=True)
@@ -95,6 +101,15 @@ def facts_to_str(user_data):
 
     return "\n".join(facts).join(['\n', '\n'])
 
+def download_it(url, filename):
+    response = requests.get(url, stream=True)
+    with open(os.path.join('downloads', filename+'.pdf'), 'wb+') as file:
+        for chunk in response.iter_content(chunk_size=1024):
+            if chunk:
+                file.write(chunk)
+    return os.path.join('downloads', filename+'.pdf')
+
+
 def results_to_str(search_results):
     """Converts search results into str"""
     html_pages = []
@@ -109,14 +124,15 @@ def results_to_str(search_results):
             #                                   download_link=download_link,
             #                                  ))
             filename = 'renders/{}.md'.format(DOI)
-            html_pages.append(filename)
+            html_pages.append([filename, download_link, DOI])
+            rendered_authors = ''.join(' * ' + author + '\n' for author in authors)
             with open(filename, 'w+', encoding='UTF-8') as ofile:
                 ofile.write(template.format(page_title=title,
-                                            authors=authors,
+                                            authors=rendered_authors,
                                             DOI=DOI,
                                             annotation=annotation,
-                                            download_link=download_link,
-                                           ))
+                                            # download_link=download_link,
+                                            ))
     return html_pages
 
 def back_to_idle(bot, update, context=None, user_data=None):
@@ -150,11 +166,12 @@ def regular_choice(bot, update, context=None, user_data=None):
                          "Подождите немного...".format(
                              facts_to_str(user_data)),
                          reply_markup=RESULTS_MARKUP)
+        bot.send_chat_action(chat_id=update.message.chat_id, action=telegram.ChatAction.TYPING)
         # parser = EntryPoint.MainParser(search_settings)
         # results = parser.search(user_data['Запрос'], max_res=50)
-        results = [['Боба Фетт', ['ХЗ'], '454554', 'нет', 'https:\\\\vk.com'],
-                   ['Старый Штиблет', ['Сатана', 'Я'], '454554', 'нет', 'https:\\\\vk.com'],
-                   ['Водка, Черти, Пистолет', ['Я'], '454554', 'нет', 'https:\\\\vk.com']]
+        results = [['Боба Фетт', ['ХЗ'], '3545465', 'нет', 'https://github.com/dhansel/Altair8800/raw/master/Documentation.pdf'],
+                   ['Старый Штиблет', ['Сатана', 'Я'], '1244567', 'нет', 'https://github.com/dhansel/Altair8800/raw/master/Documentation.pdf'],
+                   ['Водка, Черти, Пистолет', ['Я'], '454554', 'нет', 'https://github.com/dhansel/Altair8800/raw/master/Documentation.pdf']]
         RENDERED_VIEWS = results_to_str(results)
         user_data['results'] = RENDERED_VIEWS
         user_data['pagination'] = 0
@@ -165,7 +182,7 @@ def regular_choice(bot, update, context=None, user_data=None):
                               "Чтобы показать другие результаты, нажмите "
                               "'Следующий результат' или 'Предыдущий результат'."
                               " Для возврата к поиску, нажмите 'Назад'".format(
-                                  result), reply_markup=RESULTS_MARKUP)
+                                  result[0]), reply_markup=RESULTS_MARKUP)
         return SEARCH_RESULTLS
     else:
         bot.send_message(chat_id=update.message.chat_id,
@@ -218,13 +235,9 @@ def received_search_results(bot, update, context=None, user_data=None):
                                  text="Может вам подойдет это:\n",
                                  reply_markup=RESULTS_MARKUP)
                 bot.send_message(chat_id=update.message.chat_id,
-                                 text=open(result, 'r', encoding='UTF-8').read(),
+                                 text=open(result[0], 'r', encoding='UTF-8').read(),
                                 #  parse_mode=ParseMode.MARKDOWN
                                 )
-                # bot.send_document(chat_id=update.message.chat_id,
-                #                   caption=open(result, 'r', encoding='UTF-8').read(),
-                #                   document=open(result, 'rt').read(),
-                #                   parse_mode=ParseMode.MARKDOWN)
                 bot.send_message(chat_id=update.message.chat_id,
                                  text="Чтобы показать другие результаты, нажмите "
                                       "'Следующий результат' или 'Предыдущий результат'."
@@ -233,6 +246,19 @@ def received_search_results(bot, update, context=None, user_data=None):
             else:
                 bot.send_message(chat_id=update.message.chat_id,
                                  text="Это последний из найденных результатов.")
+        elif text == 'Скачать':
+            result = user_data['results'][user_data['pagination']]
+            try:
+                bot.send_chat_action(chat_id=update.message.chat_id, action=telegram.ChatAction.UPLOAD_DOCUMENT)
+                local_file = download_it(result[1], result[2])
+                bot.send_document(chat_id=update.message.chat_id,
+                                #   caption="А вот и файл:",
+                                  document=open(local_file, 'rb'),
+                                 )
+            except telegram.TelegramError:
+                bot.send_message(chat_id=update.message.chat_id,
+                                 text="Что-то пошло не так. Я не смог отправить вам этот документ.")
+                print(traceback.format_exc())
         elif text == 'Предыдущий результат':
             if not user_data['pagination'] == 0:
                 user_data['pagination'] -= 1
@@ -241,13 +267,9 @@ def received_search_results(bot, update, context=None, user_data=None):
                                  text="Может вам подойдет это:\n",
                                  reply_markup=RESULTS_MARKUP)
                 bot.send_message(chat_id=update.message.chat_id,
-                                 text=open(result, 'r', encoding='UTF-8').read(),
+                                 text=open(result[0], 'r', encoding='UTF-8').read(),
                                 #  parse_mode=ParseMode.MARKDOWN
                                 )
-                # bot.send_document(chat_id=update.message.chat_id,
-                #                   caption=open(result, 'r', encoding='UTF-8').read(),
-                #                   document=open(result, 'rt').read(),
-                #                   parse_mode=ParseMode.MARKDOWN)
                 bot.send_message(chat_id=update.message.chat_id,
                                  text="Чтобы показать другие результаты, нажмите "
                                       "'Следующий результат' или 'Предыдущий результат'."
@@ -271,12 +293,13 @@ def idle_callback(bot, update, context=None, user_data=None):
             bot.send_message(chat_id=update.message.chat_id,
                              text="Ищу '{}'".format(user_data['Запрос']),
                              reply_markup=RESULTS_MARKUP)
+            bot.send_chat_action(chat_id=update.message.chat_id, action=telegram.ChatAction.TYPING)
             # Some search actions
             # parser = EntryPoint.MainParser(search_settings)
             # results = parser.search(user_data['Запрос'], max_res=50)
-            results = [['Боба Фетт', ['ХЗ'], '454554', 'нет', 'https:\\\\vk.com'], 
-                       ['Старый Штиблет', ['Сатана', 'Я'], '454554', 'нет', 'https:\\\\vk.com'],
-                       ['Водка, Черти, Пистолет', ['Я'], '454554', 'нет', 'https:\\\\vk.com']]
+            results = [['Боба Фетт', ['ХЗ'], '435465', 'нет', 'https://github.com/dhansel/Altair8800/raw/master/Documentation.pdf'],
+                       ['Старый Штиблет', ['Сатана', 'Я'], '2434565', 'нет', 'https://github.com/dhansel/Altair8800/raw/master/Documentation.pdf'],
+                       ['Водка, Черти, Пистолет', ['Я'], '454554', 'нет', 'https://github.com/dhansel/Altair8800/raw/master/Documentation.pdf']]
             RENDERED_VIEWS = results_to_str(results)
             user_data['results'] = RENDERED_VIEWS
             user_data['pagination'] = 0
@@ -285,7 +308,7 @@ def idle_callback(bot, update, context=None, user_data=None):
                              text="Может вам подойдет это:\n",
                              reply_markup=RESULTS_MARKUP)
             bot.send_message(chat_id=update.message.chat_id,
-                             text=open(result, 'r', encoding='UTF-8').read(),
+                             text=open(result[0], 'r', encoding='UTF-8').read(),
                             #  parse_mode='MARKDOWN'
                             )
             # bot.send_document(chat_id=update.message.chat_id,
@@ -317,17 +340,20 @@ def idle_callback(bot, update, context=None, user_data=None):
             user_data['settings'] = STANDART_SETTINGS
         bot.send_message(chat_id=update.message.chat_id,
                          text="Загружаю настройки: \n {}".format(
-                             SETTINGS_STRINGS.format(user_data['settings'].get('Максимальное число результатов'),
-                                                     user_data['settings'].get('Стандартная база данных поиска')
+                             SETTINGS_STRINGS.format(user_data['settings'].get(
+                                 'Максимальное число результатов'),
+                                                     user_data['settings'].get(
+                                                         'Стандартная база данных поиска')
                                                     )),
                          reply_markup=SETTINGS_MARKUP)
         # Settings
         return SETTING_CHOOSING
     else:
         bot.send_message(chat_id=update.message.chat_id,
-                         text="Окей, чтобы осуществить поиск нажмите 'Искать!'", reply_markup=SEARCH_MARKUP)
+                         text="Окей, чтобы осуществить поиск нажмите 'Искать!'",
+                         reply_markup=SEARCH_MARKUP)
         user_data['Запрос'] = update.message.text
-        
+
 
 def settings_callback(bot, update, context=None, user_data=None):
     """Changes settings"""
@@ -338,12 +364,13 @@ def settings_callback(bot, update, context=None, user_data=None):
         context.user_data['choice'] = text
     if text == 'Назад':
         bot.send_message(chat_id=update.message.chat_id,
-                         text='Завершаем смену настроек', reply_markup=SEARCH_MARKUP, 
+                         text='Завершаем смену настроек', reply_markup=SEARCH_MARKUP,
                          disable_web_page_preview=True)
         return IDLE
     else:
         bot.send_message(chat_id=update.message.chat_id,
-                         text='Назовёте {}? Просто напишите значение мне в ответ'.format(text.lower()), 
+                         text='Назовёте {}? '
+                              'Просто напишите значение мне в ответ'.format(text.lower()),
                          reply_markup=SETTINGS_MARKUP, 
                          disable_web_page_preview=True)
         return SETTING_CHANGING
@@ -366,8 +393,10 @@ def received_setting_value(bot, update, context=None, user_data=None):
             bot.send_message(chat_id=update.message.chat_id,
                              text="Я пока не умею работать "
                                   "с ресурсом '{0}'."
-                                  " Выберите один из следующих: {1}".format(text, str(search_settings)), 
+                                  " Выберите один из следующих: {1}".format(text,
+                                                                            str(search_settings)), 
                              disable_web_page_preview=True)
+
     del user_data['choice']
 
     bot.send_message(chat_id=update.message.chat_id,
@@ -429,7 +458,7 @@ def main():
                                    idle_callback,
                                    pass_user_data=True
                                   )],
-            SEARCH_RESULTLS: [RegexHandler('^(Следующий результат|Предыдущий результат)$',
+            SEARCH_RESULTLS: [RegexHandler('^(Следующий результат|Скачать|Предыдущий результат)$',
                                            received_search_results,
                                            pass_user_data=True),
                               RegexHandler('^Назад$',
