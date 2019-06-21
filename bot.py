@@ -118,7 +118,9 @@ def results_to_str(search_results):
     with open('templates/response_template.md', 'r', encoding='UTF-8') as ifile:
         template = ifile.read()
         for result in search_results:
-            title, authors, DOI, annotation, download_link = result
+            key_words, title, authors, DOI, annotation = result
+            download_link = 'None'
+            # title, authors, DOI, annotation, download_link = result
             # html_pages.append(template.format(page_title=title,
             #                                   authors=authors,
             #                                   DOI=DOI,
