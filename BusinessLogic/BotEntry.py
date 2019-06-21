@@ -5,6 +5,7 @@ from bs4 import BeautifulSoup
 from Interfaces.AbstractParser import *
 from googletrans import Translator
 import time
+import numpy as np
 from AppSettings import *
 from .database_class import DataBase
 
