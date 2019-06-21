@@ -22,7 +22,8 @@ from telegram.ext import (Updater, CommandHandler, MessageHandler, Filters, Rege
                           ConversationHandler)
 
 from AppSettings import *
-from BusinessLogic import EntryPoint
+# from BusinessLogic import EntryPoint
+from BusinessLogic.BotEntry import BotParser
 
 # Enable logging
 logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
@@ -168,11 +169,13 @@ def regular_choice(bot, update, context=None, user_data=None):
                              facts_to_str(user_data)),
                          reply_markup=RESULTS_MARKUP)
         bot.send_chat_action(chat_id=update.message.chat_id, action=telegram.ChatAction.TYPING)
+        parser = BotParser(search_settings)
+        results = parser.parse(user_data['Запрос'])
         # parser = EntryPoint.MainParser(search_settings)
         # results = parser.search(user_data['Запрос'], max_res=50)
-        results = [['Боба Фетт', ['ХЗ'], '3545465', 'Fugler snakker aus mennen und jeg leker under bordet', 'https://github.com/dhansel/Altair8800/raw/master/Documentation.pdf'],
-                   ['Старый Штиблет', ['Сатана', 'Я'], '1244567', 'London is the capital of Great Britain!', 'https://github.com/dhansel/Altair8800/raw/master/Documentation.pdf'],
-                   ['Водка, Черти, Пистолет', ['Я'], '454554', 'London is the capital of Great Britain!', 'https://github.com/dhansel/Altair8800/raw/master/Documentation.pdf']]
+        # results = [['Боба Фетт', ['ХЗ'], '3545465', 'Fugler snakker aus mennen und jeg leker under bordet', 'https://github.com/dhansel/Altair8800/raw/master/Documentation.pdf'],
+        #            ['Старый Штиблет', ['Сатана', 'Я'], '1244567', 'London is the capital of Great Britain!', 'https://github.com/dhansel/Altair8800/raw/master/Documentation.pdf'],
+        #            ['Водка, Черти, Пистолет', ['Я'], '454554', 'London is the capital of Great Britain!', 'https://github.com/dhansel/Altair8800/raw/master/Documentation.pdf']]
         user_data['results'] = results_to_str(results)
         user_data['pagination'] = 0
         result = user_data['results'][user_data['pagination']]
@@ -295,11 +298,13 @@ def idle_callback(bot, update, context=None, user_data=None):
                              reply_markup=RESULTS_MARKUP)
             bot.send_chat_action(chat_id=update.message.chat_id, action=telegram.ChatAction.TYPING)
             # Some search actions
+            parser = BotParser(search_settings)
+            results = parser.parse(user_data['Запрос'], update.message.chat_id) #max_articles
             # parser = EntryPoint.MainParser(search_settings)
             # results = parser.search(user_data['Запрос'], max_res=50)
-            results = [['Боба Фетт', ['ХЗ'], '435465', 'Kattenen sover overfor bordet', 'https://github.com/dhansel/Altair8800/raw/master/Documentation.pdf'],
-                       ['Старый Штиблет', ['Сатана', 'Я'], '2434565', 'London is the capital of Great Britain!', 'https://github.com/dhansel/Altair8800/raw/master/Documentation.pdf'],
-                       ['Водка, Черти, Пистолет', ['Я'], '454554', 'London is the capital of Great Britain!', 'https://github.com/dhansel/Altair8800/raw/master/Documentation.pdf']]
+            # results = [['Боба Фетт', ['ХЗ'], '435465', 'Kattenen sover overfor bordet', 'https://github.com/dhansel/Altair8800/raw/master/Documentation.pdf'],
+            #            ['Старый Штиблет', ['Сатана', 'Я'], '2434565', 'London is the capital of Great Britain!', 'https://github.com/dhansel/Altair8800/raw/master/Documentation.pdf'],
+            #            ['Водка, Черти, Пистолет', ['Я'], '454554', 'London is the capital of Great Britain!', 'https://github.com/dhansel/Altair8800/raw/master/Documentation.pdf']]
             user_data['results'] = results_to_str(results)
             user_data['pagination'] = 0
             result = user_data['results'][user_data['pagination']]

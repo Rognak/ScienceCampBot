@@ -19,3 +19,10 @@ search_settings = {
     "sources": search_sources,
     "content_type": "all"  #TODO books, monography, articles
 }
+
+database_connection_settings = {
+    'dbname': 'uquery_db',
+    'user': 'danil',
+    'password': '123',
+    'host': 'localhost'
+}
