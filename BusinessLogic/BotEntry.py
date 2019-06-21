@@ -164,7 +164,7 @@ class BotParser:
                     prepared_results = np.vstack((all_results,results[indexes]))
                 else:
                     prepared_results = all_results
-                key_words, title, authors, doi, annotation = prepared_results[i:i+1, :, 0]
+                key_words, title, authors, doi, annotation = prepared_results[i:i+1, 0, :]
                 database.insert_to_stored(connection, key_words, title, authors, doi, annotation, chat_id)
             database.close_connection(connection)
                 # print('ready')
