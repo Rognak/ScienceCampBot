@@ -128,9 +128,9 @@ def results_to_str(search_results):
             #                                   download_link=download_link,
             #                                  ))
             # filename = 'renders/{}.md'.format(DOI)
-            rendered_authors = ''.join(' * ' + author + '\n' for author in authors)
+            # rendered_authors = ''.join(' * ' + author + '\n' for author in authors)
             file_content = template.format(page_title=title,
-                                           authors=rendered_authors,
+                                           authors=authors,#rendered_authors,
                                            DOI=DOI,
                                            annotation=annotation,
                                            translation=TRANSLATOR.translate(annotation, 
