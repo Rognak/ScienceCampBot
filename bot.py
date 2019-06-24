@@ -111,7 +111,6 @@ def download_it(url, filename):
                 file.write(chunk)
     return os.path.join('downloads', filename+'.pdf')
 
-
 def results_to_str(search_results):
     """Converts search results into str"""
     html_pages = []
