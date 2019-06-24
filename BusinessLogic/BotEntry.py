@@ -105,6 +105,17 @@ class BotParser:
         checker = SpellChecker()
         return checker.unknown(keywords)
 
+    def register_watched(self, key_words, title, authors, doi, annotation, chat_id):
+        """Registers resutl into the database"""
+        
+        global connection
+        
+        database = DataBase(database_connection_settings)
+        connection = database.make_connection()
+        database.insert_to_stored(connection, key_words, title, authors, doi, annotation, chat_id)
+        database.close_connection(connection)
+
+
     def parse(self, keywords, chat_id, max_articles = search_settings['max_articles']):
 
         query_string = self._prepare_keywords(keywords)
@@ -164,8 +175,8 @@ class BotParser:
                     prepared_results = np.vstack((all_results,results[indexes]))
                 else:
                     prepared_results = all_results
-                key_words, title, authors, doi, annotation = prepared_results[i:i+1, 0, :]
-                database.insert_to_stored(connection, key_words, title, authors, doi, annotation, chat_id)
+                # key_words, title, authors, doi, annotation = prepared_results[i:i+1, 0, :]
+                # database.insert_to_stored(connection, key_words, title, authors, doi, annotation, chat_id)
             database.close_connection(connection)
                 # print('ready')
 
