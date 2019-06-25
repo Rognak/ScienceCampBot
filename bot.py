@@ -119,25 +119,28 @@ def results_to_str(search_results):
         for result in search_results:
             key_words, title, authors, DOI, annotation = result
             download_link = 'None'
-            # title, authors, DOI, annotation, download_link = result
-            # html_pages.append(template.format(page_title=title,
-            #                                   authors=authors,
-            #                                   DOI=DOI,
-            #                                   annotation=annotation,
-            #                                   download_link=download_link,
-            #                                  ))
-            # filename = 'renders/{}.md'.format(DOI)
-            # rendered_authors = ''.join(' * ' + author + '\n' for author in authors)
             file_content = template.format(page_title=title,
                                            authors=authors,#rendered_authors,
                                            DOI=DOI,
                                            annotation=annotation,
-                                           translation=TRANSLATOR.translate(annotation, 
+                                           translation=TRANSLATOR.translate(annotation,
                                                                             dest='ru').text
                                            # download_link=download_link,
                                           )
             html_pages.append([file_content, download_link, DOI, [key_words, title, authors, DOI, annotation]])
     return html_pages
+
+def render_message(key_words, title, authors, DOI, annotation, download_link):
+    with open('templates/response_template.md', 'r', encoding='UTF-8') as ifile:
+        template = ifile.read()
+        message_content = template.format(page_title=title,
+                                           authors=authors,
+                                           DOI=DOI,
+                                           annotation=annotation,
+                                           translation=TRANSLATOR.translate(annotation, 
+                                                                            dest='ru').text
+                                          )
+    return message_content, download_link, DOI, [key_words, title, authors, DOI, annotation]
 
 def back_to_idle(bot, update, context=None, user_data=None):
     """Returns to idle state"""
@@ -177,19 +180,20 @@ def regular_choice(bot, update, context=None, user_data=None):
         # results = [['Боба Фетт', ['ХЗ'], '3545465', 'Fugler snakker aus mennen und jeg leker under bordet', 'https://github.com/dhansel/Altair8800/raw/master/Documentation.pdf'],
         #            ['Старый Штиблет', ['Сатана', 'Я'], '1244567', 'London is the capital of Great Britain!', 'https://github.com/dhansel/Altair8800/raw/master/Documentation.pdf'],
         #            ['Водка, Черти, Пистолет', ['Я'], '454554', 'London is the capital of Great Britain!', 'https://github.com/dhansel/Altair8800/raw/master/Documentation.pdf']]
-        user_data['results'] = results_to_str(results)
+        user_data['results'] = results
         user_data['pagination'] = 0
         result = user_data['results'][user_data['pagination']]
+        key_words, title, authors, DOI, annotation, download_link = result
         bot.send_message(chat_id=update.message.chat_id,
                          text="Может вам подойдет это:\n"
                               " {} \n"
                               "Чтобы показать другие результаты, нажмите "
                               "'Следующий результат' или 'Предыдущий результат'."
                               " Для возврата к поиску, нажмите 'Назад'".format(
-                                  result[0]), reply_markup=RESULTS_MARKUP)
-        key_words, title, authors, doi, annotation = result[-1]
+                                  render_message(key_words, title, authors, DOI, annotation, download_link)[0]), reply_markup=RESULTS_MARKUP)
+        key_words, title, authors, DOI, annotation = render_message(key_words, title, authors, DOI, annotation, download_link)[-1]
         parser.register_watched(key_words, title,
-                                authors, doi, annotation, update.message.chat_id)
+                                authors, DOI, annotation, update.message.chat_id)
         return SEARCH_RESULTLS
     else:
         bot.send_message(chat_id=update.message.chat_id,
@@ -238,17 +242,17 @@ def received_search_results(bot, update, context=None, user_data=None):
             if user_data['pagination'] < len(user_data['results'])-1:
                 user_data['pagination'] += 1
                 result = user_data['results'][user_data['pagination']]
+                key_words, title, authors, DOI, annotation, download_link = result
                 bot.send_message(chat_id=update.message.chat_id,
                                  text="Может вам подойдет это:\n",
                                  reply_markup=RESULTS_MARKUP)
                 bot.send_message(chat_id=update.message.chat_id,
-                                 text=result[0],
+                                 text=render_message(key_words, title, authors, DOI, annotation, download_link)[0],
                                 #  parse_mode="MARKDOWN"
                                 )
-                key_words, title, authors, doi, annotation = result[-1]
                 parser = BotParser(search_settings)
                 parser.register_watched(key_words, title,
-                                        authors, doi, annotation, update.message.chat_id)
+                                        authors, DOI, annotation, update.message.chat_id)
                 bot.send_message(chat_id=update.message.chat_id,
                                  text="Чтобы показать другие результаты, нажмите "
                                       "'Следующий результат' или 'Предыдущий результат'."
@@ -258,11 +262,12 @@ def received_search_results(bot, update, context=None, user_data=None):
                 bot.send_message(chat_id=update.message.chat_id,
                                  text="Это последний из найденных результатов.")
         elif text == 'Скачать':
-            result = user_data['results'][user_data['pagination']]
+            key_words, title, authors, DOI, annotation, download_link = user_data['results'][user_data['pagination']]
             try:
                 bot.send_chat_action(chat_id=update.message.chat_id, 
                                      action=telegram.ChatAction.UPLOAD_DOCUMENT)
-                local_file = download_it(result[1], result[2])
+                local_file = download_it(render_message(key_words, title, authors, DOI, annotation, download_link)[1],
+                                         render_message(key_words, title, authors, DOI, annotation, download_link)[2])
                 bot.send_document(chat_id=update.message.chat_id,
                                 #   caption="А вот и файл:",
                                   document=open(local_file, 'rb'),
@@ -274,18 +279,18 @@ def received_search_results(bot, update, context=None, user_data=None):
         elif text == 'Предыдущий результат':
             if not user_data['pagination'] == 0:
                 user_data['pagination'] -= 1
-                result = user_data['results'][user_data['pagination']]
+                key_words, title, authors, DOI, annotation, download_link = user_data['results'][user_data['pagination']]
                 bot.send_message(chat_id=update.message.chat_id,
                                  text="Может вам подойдет это:\n",
                                  reply_markup=RESULTS_MARKUP)
                 bot.send_message(chat_id=update.message.chat_id,
-                                 text=result[0],
+                                 text=render_message(key_words, title, authors, DOI, annotation, download_link)[0],
                                 #  parse_mode="MARKDOWN"
                                 )
-                key_words, title, authors, doi, annotation = result[-1]
+                key_words, title, authors, DOI, annotation = render_message(key_words, title, authors, DOI, annotation, download_link)[-1]
                 parser = BotParser(search_settings)
                 parser.register_watched(key_words, title,
-                                        authors, doi, annotation, update.message.chat_id)
+                                        authors, DOI, annotation, update.message.chat_id)
                 bot.send_message(chat_id=update.message.chat_id,
                                  text="Чтобы показать другие результаты, нажмите "
                                       "'Следующий результат' или 'Предыдущий результат'."
@@ -317,19 +322,19 @@ def idle_callback(bot, update, context=None, user_data=None):
             # results = [['Боба Фетт', ['ХЗ'], '435465', 'Kattenen sover overfor bordet', 'https://github.com/dhansel/Altair8800/raw/master/Documentation.pdf'],
             #            ['Старый Штиблет', ['Сатана', 'Я'], '2434565', 'London is the capital of Great Britain!', 'https://github.com/dhansel/Altair8800/raw/master/Documentation.pdf'],
             #            ['Водка, Черти, Пистолет', ['Я'], '454554', 'London is the capital of Great Britain!', 'https://github.com/dhansel/Altair8800/raw/master/Documentation.pdf']]
-            user_data['results'] = results_to_str(results)
+            user_data['results'] = results
             user_data['pagination'] = 0
-            result = user_data['results'][user_data['pagination']]
+            key_words, title, authors, DOI, annotation, download_link = user_data['results'][user_data['pagination']]
             bot.send_message(chat_id=update.message.chat_id,
                              text="Может вам подойдет это:\n",
                              reply_markup=RESULTS_MARKUP)
             bot.send_message(chat_id=update.message.chat_id,
-                             text=result[0],
+                             text=render_message(key_words, title, authors, DOI, annotation, download_link)[0],
                             #  parse_mode="MARKDOWN"
                             )
-            key_words, title, authors, doi, annotation = result[-1]
+            key_words, title, authors, DOI, annotation = render_message(key_words, title, authors, DOI, annotation, download_link)[-1]
             parser.register_watched(key_words, title,
-                                    authors, doi, annotation, update.message.chat_id)
+                                    authors, DOI, annotation, update.message.chat_id)
             bot.send_message(chat_id=update.message.chat_id,
                              text="Чтобы показать другие результаты, нажмите "
                                   "'Следующий результат' или 'Предыдущий результат'."
