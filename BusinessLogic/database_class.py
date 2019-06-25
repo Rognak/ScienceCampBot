@@ -49,14 +49,14 @@ class DataBase:
             return results_from_database
 
 
-    def insert_to_results(self, connection, key_words, title, authors, doi, annotation):
+    def insert_to_results(self, connection, key_words, title, authors, doi, annotation, scihub_url):
         """Вставка в результаты поиска"""
         cursor = connection.cursor()
 
         cursor.execute("""INSERT INTO search_results
-                          (key_words, title, authors, doi, annotation)
-                          VALUES (%s, %s, %s, %s, %s)
-                       """, (str(key_words), str(title), str(authors), str(doi), str(annotation)))
+                          (key_words, scihub_url, title, authors, doi, annotation)
+                          VALUES (%s, %s, %s, %s, %s, %s)
+                       """, (str(key_words), str(scihub_url), str(title), str(authors), str(doi), str(annotation)))
         connection.commit()
         cursor.close()
 
@@ -74,13 +74,13 @@ class DataBase:
         cursor.close()
         return  results_from_database
 
-    def insert_to_stored(self, connection, key_words, title, authors, doi, annotation, chat_id):
+    def insert_to_stored(self, connection, key_words, title, authors, doi, annotation, chat_id, scihub_url):
         cursor = connection.cursor()
 
         cursor.execute("""INSERT INTO users_stored_articles
-                           (key_words, title, authors, doi, annotation, chat_id)
-                           VALUES (%s, %s, %s, %s, %s, %s)
-                        """, (str(key_words), str(title), str(authors), str(doi), str(annotation), str(chat_id)))
+                           (key_words, scihub_url, title, authors, doi, annotation, chat_id)
+                           VALUES (%s, %s, %s, %s, %s, %s, %s)
+                        """, (str(key_words), str(scihub_url), str(title), str(authors), str(doi), str(annotation), str(chat_id)))
         connection.commit()
         cursor.close()
 

@@ -20,6 +20,7 @@ from telegram import ParseMode
 from telegram import ReplyKeyboardMarkup
 from telegram.ext import (Updater, CommandHandler, MessageHandler, Filters, RegexHandler,
                           ConversationHandler)
+import hashlib
 
 from AppSettings import *
 # from BusinessLogic import EntryPoint
@@ -119,6 +120,16 @@ def results_to_str(search_results):
         for result in search_results:
             key_words, title, authors, DOI, annotation = result
             download_link = 'None'
+            key_words, title, authors, DOI, annotation, download_link = result
+            # title, authors, DOI, annotation, download_link = result
+            # html_pages.append(template.format(page_title=title,
+            #                                   authors=authors,
+            #                                   DOI=DOI,
+            #                                   annotation=annotation,
+            #                                   download_link=download_link,
+            #                                  ))
+            # filename = 'renders/{}.md'.format(DOI)
+            # rendered_authors = ''.join(' * ' + author + '\n' for author in authors)
             file_content = template.format(page_title=title,
                                            authors=authors,#rendered_authors,
                                            DOI=DOI,
@@ -127,7 +138,7 @@ def results_to_str(search_results):
                                                                             dest='ru').text
                                            # download_link=download_link,
                                           )
-            html_pages.append([file_content, download_link, DOI, [key_words, title, authors, DOI, annotation]])
+            html_pages.append([file_content, download_link, DOI, [key_words, title, authors, DOI, annotation, download_link]])
     return html_pages
 
 def render_message(key_words, title, authors, DOI, annotation, download_link):
@@ -252,7 +263,7 @@ def received_search_results(bot, update, context=None, user_data=None):
                                 )
                 parser = BotParser(search_settings)
                 parser.register_watched(key_words, title,
-                                        authors, DOI, annotation, update.message.chat_id)
+                                        authors, DOI, annotation, update.message.chat_id, download_link)
                 bot.send_message(chat_id=update.message.chat_id,
                                  text="Чтобы показать другие результаты, нажмите "
                                       "'Следующий результат' или 'Предыдущий результат'."
@@ -266,8 +277,11 @@ def received_search_results(bot, update, context=None, user_data=None):
             try:
                 bot.send_chat_action(chat_id=update.message.chat_id, 
                                      action=telegram.ChatAction.UPLOAD_DOCUMENT)
-                local_file = download_it(render_message(key_words, title, authors, DOI, annotation, download_link)[1],
-                                         render_message(key_words, title, authors, DOI, annotation, download_link)[2])
+                #hashlib.md5(bytes(doi, encoding='utf-8')).hexdigest()
+                local_file = download_it(render_message(key_words, title, authors, 
+                                                        DOI, annotation, download_link)[1], 
+                                         hashlib.md5(bytes(render_message(key_words, title, authors, 
+                                                           DOI, annotation, download_link)[-1][1], encoding='utf-8')).hexdigest())
                 bot.send_document(chat_id=update.message.chat_id,
                                 #   caption="А вот и файл:",
                                   document=open(local_file, 'rb'),
@@ -287,10 +301,10 @@ def received_search_results(bot, update, context=None, user_data=None):
                                  text=render_message(key_words, title, authors, DOI, annotation, download_link)[0],
                                 #  parse_mode="MARKDOWN"
                                 )
-                key_words, title, authors, DOI, annotation = render_message(key_words, title, authors, DOI, annotation, download_link)[-1]
+                key_words, title, authors, doi, annotation, scihub_url = render_message(key_words, title, authors, DOI, annotation, download_link)[-1]
                 parser = BotParser(search_settings)
                 parser.register_watched(key_words, title,
-                                        authors, DOI, annotation, update.message.chat_id)
+                                authors, doi, annotation, update.message.chat_id, scihub_url)
                 bot.send_message(chat_id=update.message.chat_id,
                                  text="Чтобы показать другие результаты, нажмите "
                                       "'Следующий результат' или 'Предыдущий результат'."
@@ -332,9 +346,11 @@ def idle_callback(bot, update, context=None, user_data=None):
                              text=render_message(key_words, title, authors, DOI, annotation, download_link)[0],
                             #  parse_mode="MARKDOWN"
                             )
-            key_words, title, authors, DOI, annotation = render_message(key_words, title, authors, DOI, annotation, download_link)[-1]
+
+            # print(result[-1])
+            key_words, title, authors, doi, annotation, scihub_url = render_message(key_words, title, authors, DOI, annotation, download_link)[-1]
             parser.register_watched(key_words, title,
-                                    authors, DOI, annotation, update.message.chat_id)
+                                authors, doi, annotation, update.message.chat_id, scihub_url)
             bot.send_message(chat_id=update.message.chat_id,
                              text="Чтобы показать другие результаты, нажмите "
                                   "'Следующий результат' или 'Предыдущий результат'."

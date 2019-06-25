@@ -8,6 +8,7 @@ import time
 import numpy as np
 from AppSettings import *
 from .database_class import DataBase
+import hashlib
 
 class BotParser:
 
@@ -37,7 +38,9 @@ class BotParser:
 
             for i in range(len(articles)):
 
+
                 doi = articles[i].find('div', {'class': 'issue-item_info'})
+                public_date = doi.find('span', {'class': 'pub-date-value'}).get_text().split(' ')[-1]
                 doi = re.search(patterns['doi'], doi.contents[-2].get_text())
                 doi = doi.group(0)
 
@@ -47,9 +50,18 @@ class BotParser:
 
                     for author in articles[i].ul:
                         try:
-                            authors.append(author.text)
+                            author_test = author.text
+                            if ',' in author_test:
+                                author_test = re.findall(patterns['author_parcing'], author_test)[0]
+
+                            if 'ufeff' in author_test:
+                                author_test = re.sub(r"b\ufeff\b", '', author_test)
+                            authors.append(author_test)
                         except:
                             authors.append('I dont know author')
+
+                    sci_author = authors[0].split(' ')[-1]
+                    main_author = re.findall(patterns['author'], sci_author)[0].lower()
                     authors_to_db = ','.join(authors)
                     authors = []
 
@@ -58,39 +70,36 @@ class BotParser:
                     except:
                         annotation = 'No annotation'
 
-                    #TODO вставить функцию генератора ссылки на скайхаб
-                    #start_time = time.time()
-                    #:
-                    #    r = requests.get(scihub_url + doi)
-                    #    hub = BeautifulSoup(r.text, 'lxml')
-                    #    res = hub.find('div', {'id': 'buttons'}).ul.contents[3].a['onclick']
-                    #    #scihub_url = re.findall(patterns['url'], res)
-                    #except:
-                    #    "Oops, captcha!"
-                    #t = time.time() - start_time
+                    if main_author != 'author':
+                        try:
+                            sci_hash = hashlib.md5(bytes(doi,encoding='utf-8')).hexdigest()
+                            res_hub = 'https://dacemirror.sci-hub.se/journal-article/' + sci_hash + '/' + main_author + public_date + '.pdf?download=true'
+                            #print(res_hub)
+                        except:
+                            "Oops, captcha!"
 
-                    database.insert_to_results(connection, key_words, title, authors_to_db, doi, annotation)
+                    database.insert_to_results(connection, key_words, title, authors_to_db, doi, annotation, res_hub)
                 else:
                     article = database.select_by_value(connection, 'search_results', 'doi', doi)
                     stacked_article.append(article)
 
         if len(stacked_article) != 0:
-            return self._stack_and_reshape(np.array(stacked_article), 5)
+            print(np.array(stacked_article).shape)
+            return self._stack_and_reshape(np.array(stacked_article), np.array(stacked_article).shape)
 
 
     def _stack_and_reshape(self, array, shape):
         stacked = np.stack(array)
-        if len(stacked.shape) == 2:
-            stacked = stacked.reshape(stacked.shape[0], shape)
-        else:
-            stacked = stacked.reshape(stacked.shape[1], shape)
+        stacked = stacked.reshape(shape[0], shape[1])
         return stacked
 
     def _prepare_results(self, results, stored):
         d2 = {str(results[i:i + 1, 3][0]): results[i:i + 1, :] for i in range(len(results))}
-        d1 = {str(stored[i:i + 1, 4][0]): stored[i:i + 1, :5] for i in range(len(stored))}
+        d1 = {str(stored[i:i + 1, 3][0]): stored[i:i + 1, :5] for i in range(len(stored))}
         value = {k: d2[k] for k in set(d2) - set(d1)}
-        return self._stack_and_reshape(value.values(), 5)
+        #print(value.values())
+        #print(len(value.values()))
+        return self._stack_and_reshape(value.values(), (len(value.values()), 6))
 
 
     def _prepare_keywords(self, keywords):
@@ -105,14 +114,14 @@ class BotParser:
         checker = SpellChecker()
         return checker.unknown(keywords)
 
-    def register_watched(self, key_words, title, authors, doi, annotation, chat_id):
+    def register_watched(self, key_words, title, authors, doi, annotation, chat_id, scihub_url):
         """Registers resutl into the database"""
         
         global connection
         
         database = DataBase(database_connection_settings)
         connection = database.make_connection()
-        database.insert_to_stored(connection, key_words, title, authors, doi, annotation, chat_id)
+        database.insert_to_stored(connection, key_words, title, authors, doi, annotation, chat_id, scihub_url)
         database.close_connection(connection)
 
 
@@ -121,6 +130,8 @@ class BotParser:
         query_string = self._prepare_keywords(keywords)
         checked_keywords = self._check_keywords(query_string)
         query_string = ', '.join(self._prepare_keywords(keywords))
+        print(query_string)
+        print(checked_keywords)
         # print(query_string)
 
         if len(checked_keywords) != 0:
@@ -144,20 +155,23 @@ class BotParser:
         doi_from_db = database.get_doi(connection)
 
         #пример chat_id
-        chat_id = '12345'
+        #chat_id = '12345'
 
         if query_string in keywords:
+            start_time = time.time()
             all_results = database.select_by_value(connection, 'search_results', 'key_words', query_string)
             stored_results = database.select_by_value(connection, 'users_stored_articles', 'key_words', query_string, ('chat_id', chat_id))
             results = self._prepare_results(all_results, stored_results)
+            print(results)
             database.close_connection(connection)
+            print("--- %s seconds ---" % (time.time() - start_time))
             return results
 
         else:
             start_time = time.time()
 
             for source in self.parser_settings['sources']:
-                query = self._make_url(source, query_string, max_articles=5)
+                query = self._make_url(source, query_string, max_articles=25)
                 response = session.get(query)
 
                 soup = BeautifulSoup(response.text, 'lxml')
@@ -177,9 +191,10 @@ class BotParser:
                     prepared_results = all_results
                 # key_words, title, authors, doi, annotation = prepared_results[i:i+1, 0, :]
                 # database.insert_to_stored(connection, key_words, title, authors, doi, annotation, chat_id)
+            print(prepared_results)
             database.close_connection(connection)
                 # print('ready')
-
+            #print(start_time - time.time())
             # print("--- %s seconds ---" % (time.time() - start_time))
             return prepared_results
 
