@@ -107,9 +107,7 @@ def facts_to_str(user_data):
 def download_it(url, filename):
     response = requests.get(url, stream=True)
     with open(os.path.join('downloads', filename+'.pdf'), 'wb+') as file:
-        for chunk in response.iter_content(chunk_size=1024):
-            if chunk:
-                file.write(chunk)
+        file.write(response.content)
     return os.path.join('downloads', filename+'.pdf')
 
 def results_to_str(search_results):
@@ -151,7 +149,7 @@ def render_message(key_words, title, authors, DOI, annotation, download_link):
                                            translation=TRANSLATOR.translate(annotation, 
                                                                             dest='ru').text
                                           )
-    return message_content, download_link, DOI, [key_words, title, authors, DOI, annotation]
+    return message_content, download_link, DOI, [key_words, title, authors, DOI, annotation, download_link]
 
 def back_to_idle(bot, update, context=None, user_data=None):
     """Returns to idle state"""

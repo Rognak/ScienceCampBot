@@ -67,7 +67,7 @@ class DataBase:
         if and_params == None:
             cursor.execute("""SELECT * FROM %s WHERE %s = '%s'""" % (table, select_param, value))
         else:
-            cursor.execute("""SELECT * FROM %s WHERE %s = '%s' AND %s = '%s' """% (table, select_param, value, and_params[0], and_params[1]))
+            cursor.execute("""SELECT * FROM %s WHERE %s = '%s' AND %s = '%s' """ % (table, select_param, value, and_params[0], and_params[1]))
 
         results_from_database = cursor.fetchall()
         results_from_database = np.array(results_from_database)
@@ -81,6 +81,27 @@ class DataBase:
                            (key_words, scihub_url, title, authors, doi, annotation, chat_id)
                            VALUES (%s, %s, %s, %s, %s, %s, %s)
                         """, (str(key_words), str(scihub_url), str(title), str(authors), str(doi), str(annotation), str(chat_id)))
+        connection.commit()
+        cursor.close()
+
+
+    def register_user(self, connection, chat_id, username):
+        cursor = connection.cursor()
+
+        cursor.execute("""INSERT INTO user_info
+                        (chat_id, username)
+                        VALUES (%s, %s)
+                       """, (chat_id, username))
+
+        connection.commit()
+        cursor.close()
+
+
+    def update_url(self, connection, new_url):
+        cursor = connection.cursor()
+
+        cursor.execute("""UPDATE search_results SET scihub_url = '%s' WHERE scihub_url = %s""" % (new_url))
+
         connection.commit()
         cursor.close()
 
