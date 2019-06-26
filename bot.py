@@ -22,6 +22,10 @@ from telegram.ext import (Updater, CommandHandler, MessageHandler, Filters, Rege
                           ConversationHandler)
 import hashlib
 
+# import crossref
+from crossref.restful import Works
+import doi2bib
+
 from AppSettings import *
 # from BusinessLogic import EntryPoint
 from BusinessLogic.BotEntry import BotParser
@@ -71,7 +75,7 @@ ADD_TAGS_KEYBOARD = [['Автор', 'Год издания', 'Название']
 SETTINGS_KEYBOARD = [['Максимальное число результатов', 'Стандартная база данных поиска'], 
                      ['Назад']]
 
-RESULTS_KEYBOARD = [['Следующий результат', 'Скачать', 'Предыдущий результат'], 
+RESULTS_KEYBOARD = [['Следующий результат', 'Скачать', 'Цитировать (BibTex)', 'Предыдущий результат'], 
                     ['Назад']]
 
 SEARCH_MARKUP = ReplyKeyboardMarkup(SEARCH_KEYBOARD, one_time_keyboard=True)
@@ -104,7 +108,37 @@ def facts_to_str(user_data):
 
     return "\n".join(facts).join(['\n', '\n'])
 
+def cite_it(bot, chat_id, DOI):
+    """Returns citation for given DOI"""
+    # headers = {"content-type":"application/x-bibtex"}
+    # resp = requests.get("https://doi.org/" + DOI, headers=headers)
+    # return resp.content
+    works = Works()
+    if not works.agency(DOI):
+        bot.send_message(chat_id=chat_id,
+                         text="Этот документ не входит в базу цитирования CrossRef..."
+                        )
+        return
+    else:
+        record = works.doi(DOI)
+        found, meta_bib = doi2bib.crossref.get_bib(DOI)
+        if not found:
+            bot.send_message(chat_id=chat_id,
+                             text="Документ не найден..."
+                            )
+            return
+        bot.send_message(chat_id=chat_id,
+                         text="Цитирование по CrossRef:"
+                        )
+        filename = DOI.replace('/', '-')
+        with open(os.path.join('downloads', filename+'.bib'), 'wb+') as file:
+            file.write(meta_bib)
+        bot.send_document(chat_id=chat_id,
+                          document=open(os.path.join('downloads', filename+'.bib'), 'rb'),
+                         )
+
 def download_it(url, filename):
+    """downloads a file via url and writes it to the local storage with given name"""
     response = requests.get(url, stream=True)
     with open(os.path.join('downloads', filename+'.pdf'), 'wb+') as file:
         file.write(response.content)
@@ -288,6 +322,14 @@ def received_search_results(bot, update, context=None, user_data=None):
                 bot.send_message(chat_id=update.message.chat_id,
                                  text="Что-то пошло не так. Я не смог отправить вам этот документ.")
                 print(traceback.format_exc())
+        elif text == 'Цитировать (BibTex)':
+            key_words, title, authors, DOI, annotation, download_link = user_data['results'][user_data['pagination']]
+            try:
+                cite_it(bot, update.message.chat_id, DOI)
+            except telegram.TelegramError:
+                bot.send_message(chat_id=update.message.chat_id,
+                                 text="Что-то пошло не так. Я не смог отправить вам этот документ.")
+                print(traceback.format_exc()) 
         elif text == 'Предыдущий результат':
             if not user_data['pagination'] == 0:
                 user_data['pagination'] -= 1
@@ -492,7 +534,7 @@ def main():
                                    idle_callback,
                                    pass_user_data=True
                                   )],
-            SEARCH_RESULTLS: [RegexHandler('^(Следующий результат|Скачать|Предыдущий результат)$',
+            SEARCH_RESULTLS: [RegexHandler('^(Следующий результат|Скачать|Цитировать (BibTex)|Предыдущий результат)$',
                                            received_search_results,
                                            pass_user_data=True),
                               RegexHandler('^Назад$',
