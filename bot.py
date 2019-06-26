@@ -48,8 +48,8 @@ SETTINGS_STRINGS = """\n
 STANDART_SETTINGS = {'Максимальное число результатов': 50,
                      'Стандартная база данных поиска':search_sources[0]}
 
-with open('api.json', 'r', encoding='UTF-8') as file:
-    data = json.loads(file.read())
+with open('api.json', 'r', encoding='UTF-8') as local_file:
+    data = json.loads(local_file.read())
     __TOCKEN__ = data['API']
     __BOT_NAME__ = data['BOT_NAME']
     __BOT_API_NAME__ = data['BOT_API_NAME']
@@ -75,7 +75,8 @@ ADD_TAGS_KEYBOARD = [['Автор', 'Год издания', 'Название']
 SETTINGS_KEYBOARD = [['Максимальное число результатов', 'Стандартная база данных поиска'], 
                      ['Назад']]
 
-RESULTS_KEYBOARD = [['Следующий результат', 'Скачать', 'Цитировать (BibTex)', 'Предыдущий результат'], 
+RESULTS_KEYBOARD = [['Следующий результат', 'Скачать', 
+                     'Цитировать (BibTex)', 'Предыдущий результат'], 
                     ['Назад']]
 
 SEARCH_MARKUP = ReplyKeyboardMarkup(SEARCH_KEYBOARD, one_time_keyboard=True)
@@ -108,20 +109,20 @@ def facts_to_str(user_data):
 
     return "\n".join(facts).join(['\n', '\n'])
 
-def cite_it(bot, chat_id, DOI):
+def cite_it(bot, chat_id, doi):
     """Returns citation for given DOI"""
     # headers = {"content-type":"application/x-bibtex"}
     # resp = requests.get("https://doi.org/" + DOI, headers=headers)
     # return resp.content
     works = Works()
-    if not works.agency(DOI):
+    if not works.agency(doi):
         bot.send_message(chat_id=chat_id,
                          text="Этот документ не входит в базу цитирования CrossRef..."
                         )
         return
     else:
-        record = works.doi(DOI)
-        found, meta_bib = doi2bib.crossref.get_bib(DOI)
+        record = works.doi(doi)
+        found, meta_bib = doi2bib.crossref.get_bib(doi)
         if not found:
             bot.send_message(chat_id=chat_id,
                              text="Документ не найден..."
@@ -130,9 +131,9 @@ def cite_it(bot, chat_id, DOI):
         bot.send_message(chat_id=chat_id,
                          text="Цитирование по CrossRef:"
                         )
-        filename = DOI.replace('/', '-')
-        with open(os.path.join('downloads', filename+'.bib'), 'wb+') as file:
-            file.write(meta_bib)
+        filename = doi.replace('/', '-')
+        with open(os.path.join('downloads', filename+'.bib'), 'wb+') as downloaded_file:
+            downloaded_file.write(meta_bib)
         bot.send_document(chat_id=chat_id,
                           document=open(os.path.join('downloads', filename+'.bib'), 'rb'),
                          )
@@ -140,19 +141,19 @@ def cite_it(bot, chat_id, DOI):
 def download_it(url, filename):
     """downloads a file via url and writes it to the local storage with given name"""
     response = requests.get(url, stream=True)
-    with open(os.path.join('downloads', filename+'.pdf'), 'wb+') as file:
-        file.write(response.content)
+    with open(os.path.join('downloads', filename+'.pdf'), 'wb+') as downloaded_file:
+        downloaded_file.write(response.content)
     return os.path.join('downloads', filename+'.pdf')
 
 def results_to_str(search_results):
     """Converts search results into str"""
     html_pages = []
-    with open('templates/response_template.md', 'r', encoding='UTF-8') as ifile:
-        template = ifile.read()
+    with open('templates/response_template.md', 'r', encoding='UTF-8') as template_file:
+        template = template_file.read()
         for result in search_results:
-            key_words, title, authors, DOI, annotation = result
+            key_words, title, authors, doi, annotation = result
             download_link = 'None'
-            key_words, title, authors, DOI, annotation, download_link = result
+            key_words, title, authors, doi, annotation, download_link = result
             # title, authors, DOI, annotation, download_link = result
             # html_pages.append(template.format(page_title=title,
             #                                   authors=authors,
@@ -164,26 +165,30 @@ def results_to_str(search_results):
             # rendered_authors = ''.join(' * ' + author + '\n' for author in authors)
             file_content = template.format(page_title=title,
                                            authors=authors,#rendered_authors,
-                                           DOI=DOI,
+                                           DOI=doi,
                                            annotation=annotation,
                                            translation=TRANSLATOR.translate(annotation,
                                                                             dest='ru').text
                                            # download_link=download_link,
                                           )
-            html_pages.append([file_content, download_link, DOI, [key_words, title, authors, DOI, annotation, download_link]])
+            html_pages.append([file_content, download_link, 
+                               doi, [key_words, title, authors,
+                                     doi, annotation, download_link]])
     return html_pages
 
-def render_message(key_words, title, authors, DOI, annotation, download_link):
+def render_message(key_words, title, authors, doi, annotation, download_link):
     with open('templates/response_template.md', 'r', encoding='UTF-8') as ifile:
         template = ifile.read()
         message_content = template.format(page_title=title,
-                                           authors=authors,
-                                           DOI=DOI,
-                                           annotation=annotation,
-                                           translation=TRANSLATOR.translate(annotation, 
-                                                                            dest='ru').text
-                                          )
-    return message_content, download_link, DOI, [key_words, title, authors, DOI, annotation, download_link]
+                                          authors=authors,
+                                          DOI=doi,
+                                          annotation=annotation,
+                                          translation=TRANSLATOR.translate(annotation,
+                                                                           dest='ru').text
+                                         )
+    return message_content, download_link, \
+        doi, [key_words, title, authors, \
+            doi, annotation, download_link]
 
 def back_to_idle(bot, update, context=None, user_data=None):
     """Returns to idle state"""
@@ -226,17 +231,18 @@ def regular_choice(bot, update, context=None, user_data=None):
         user_data['results'] = results
         user_data['pagination'] = 0
         result = user_data['results'][user_data['pagination']]
-        key_words, title, authors, DOI, annotation, download_link = result
+        key_words, title, authors, doi, annotation, download_link = result
         bot.send_message(chat_id=update.message.chat_id,
                          text="Может вам подойдет это:\n"
                               " {} \n"
                               "Чтобы показать другие результаты, нажмите "
                               "'Следующий результат' или 'Предыдущий результат'."
                               " Для возврата к поиску, нажмите 'Назад'".format(
-                                  render_message(key_words, title, authors, DOI, annotation, download_link)[0]), reply_markup=RESULTS_MARKUP)
-        key_words, title, authors, DOI, annotation = render_message(key_words, title, authors, DOI, annotation, download_link)[-1]
+                                  render_message(key_words, title, authors, doi, annotation, download_link)[0]), reply_markup=RESULTS_MARKUP)
+        key_words, title, authors, doi, annotation = render_message(key_words, title, authors, 
+                                                                    doi, annotation, download_link)[-1]
         parser.register_watched(key_words, title,
-                                authors, DOI, annotation, update.message.chat_id, download_link)
+                                authors, doi, annotation, update.message.chat_id, download_link)
         return SEARCH_RESULTLS
     else:
         bot.send_message(chat_id=update.message.chat_id,
@@ -285,17 +291,17 @@ def received_search_results(bot, update, context=None, user_data=None):
             if user_data['pagination'] < len(user_data['results'])-1:
                 user_data['pagination'] += 1
                 result = user_data['results'][user_data['pagination']]
-                key_words, title, authors, DOI, annotation, download_link = result
+                key_words, title, authors, doi, annotation, download_link = result
                 bot.send_message(chat_id=update.message.chat_id,
                                  text="Может вам подойдет это:\n",
                                  reply_markup=RESULTS_MARKUP)
                 bot.send_message(chat_id=update.message.chat_id,
-                                 text=render_message(key_words, title, authors, DOI, annotation, download_link)[0],
+                                 text=render_message(key_words, title, authors, doi, annotation, download_link)[0],
                                 #  parse_mode="MARKDOWN"
                                 )
                 parser = BotParser(search_settings)
                 parser.register_watched(key_words, title,
-                                        authors, DOI, annotation, update.message.chat_id, download_link)
+                                        authors, doi, annotation, update.message.chat_id, download_link)
                 bot.send_message(chat_id=update.message.chat_id,
                                  text="Чтобы показать другие результаты, нажмите "
                                       "'Следующий результат' или 'Предыдущий результат'."
@@ -305,15 +311,15 @@ def received_search_results(bot, update, context=None, user_data=None):
                 bot.send_message(chat_id=update.message.chat_id,
                                  text="Это последний из найденных результатов.")
         elif text == 'Скачать':
-            key_words, title, authors, DOI, annotation, download_link = user_data['results'][user_data['pagination']]
+            key_words, title, authors, doi, annotation, download_link = user_data['results'][user_data['pagination']]
             try:
                 bot.send_chat_action(chat_id=update.message.chat_id, 
                                      action=telegram.ChatAction.UPLOAD_DOCUMENT)
                 #hashlib.md5(bytes(doi, encoding='utf-8')).hexdigest()
                 local_file = download_it(render_message(key_words, title, authors, 
-                                                        DOI, annotation, download_link)[1], 
+                                                        doi, annotation, download_link)[1], 
                                          hashlib.md5(bytes(render_message(key_words, title, authors, 
-                                                           DOI, annotation, download_link)[-1][1], encoding='utf-8')).hexdigest())
+                                                           doi, annotation, download_link)[-1][1], encoding='utf-8')).hexdigest())
                 bot.send_document(chat_id=update.message.chat_id,
                                 #   caption="А вот и файл:",
                                   document=open(local_file, 'rb'),
@@ -323,9 +329,9 @@ def received_search_results(bot, update, context=None, user_data=None):
                                  text="Что-то пошло не так. Я не смог отправить вам этот документ.")
                 print(traceback.format_exc())
         elif text == 'Цитировать (BibTex)':
-            key_words, title, authors, DOI, annotation, download_link = user_data['results'][user_data['pagination']]
+            key_words, title, authors, doi, annotation, download_link = user_data['results'][user_data['pagination']]
             try:
-                cite_it(bot, update.message.chat_id, DOI)
+                cite_it(bot, update.message.chat_id, doi)
             except telegram.TelegramError:
                 bot.send_message(chat_id=update.message.chat_id,
                                  text="Что-то пошло не так. Я не смог отправить вам этот документ.")
@@ -333,15 +339,15 @@ def received_search_results(bot, update, context=None, user_data=None):
         elif text == 'Предыдущий результат':
             if not user_data['pagination'] == 0:
                 user_data['pagination'] -= 1
-                key_words, title, authors, DOI, annotation, download_link = user_data['results'][user_data['pagination']]
+                key_words, title, authors, doi, annotation, download_link = user_data['results'][user_data['pagination']]
                 bot.send_message(chat_id=update.message.chat_id,
                                  text="Может вам подойдет это:\n",
                                  reply_markup=RESULTS_MARKUP)
                 bot.send_message(chat_id=update.message.chat_id,
-                                 text=render_message(key_words, title, authors, DOI, annotation, download_link)[0],
+                                 text=render_message(key_words, title, authors, doi, annotation, download_link)[0],
                                 #  parse_mode="MARKDOWN"
                                 )
-                key_words, title, authors, doi, annotation, scihub_url = render_message(key_words, title, authors, DOI, annotation, download_link)[-1]
+                key_words, title, authors, doi, annotation, scihub_url = render_message(key_words, title, authors, doi, annotation, download_link)[-1]
                 parser = BotParser(search_settings)
                 parser.register_watched(key_words, title,
                                 authors, doi, annotation, update.message.chat_id, scihub_url)
@@ -371,24 +377,20 @@ def idle_callback(bot, update, context=None, user_data=None):
             # Some search actions
             parser = BotParser(search_settings)
             results = parser.parse(user_data['Запрос'], update.message.chat_id) #max_articles
-            # parser = EntryPoint.MainParser(search_settings)
-            # results = parser.search(user_data['Запрос'], max_res=50)
-            # results = [['Боба Фетт', ['ХЗ'], '435465', 'Kattenen sover overfor bordet', 'https://github.com/dhansel/Altair8800/raw/master/Documentation.pdf'],
-            #            ['Старый Штиблет', ['Сатана', 'Я'], '2434565', 'London is the capital of Great Britain!', 'https://github.com/dhansel/Altair8800/raw/master/Documentation.pdf'],
-            #            ['Водка, Черти, Пистолет', ['Я'], '454554', 'London is the capital of Great Britain!', 'https://github.com/dhansel/Altair8800/raw/master/Documentation.pdf']]
             user_data['results'] = results
             user_data['pagination'] = 0
-            key_words, title, authors, DOI, annotation, download_link = user_data['results'][user_data['pagination']]
+            key_words, title, authors, doi, annotation, download_link = user_data['results'][user_data['pagination']]
             bot.send_message(chat_id=update.message.chat_id,
                              text="Может вам подойдет это:\n",
                              reply_markup=RESULTS_MARKUP)
             bot.send_message(chat_id=update.message.chat_id,
-                             text=render_message(key_words, title, authors, DOI, annotation, download_link)[0],
-                            #  parse_mode="MARKDOWN"
+                             text=render_message(key_words, title, authors, 
+                                                 doi, annotation, download_link)[0],
                             )
 
             # print(result[-1])
-            key_words, title, authors, doi, annotation, scihub_url = render_message(key_words, title, authors, DOI, annotation, download_link)[-1]
+            key_words, title, authors, doi, annotation, scihub_url = render_message(key_words, title, authors, 
+                                                                                    doi, annotation, download_link)[-1]
             parser.register_watched(key_words, title,
                                 authors, doi, annotation, update.message.chat_id, scihub_url)
             bot.send_message(chat_id=update.message.chat_id,
