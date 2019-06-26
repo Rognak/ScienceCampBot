@@ -91,6 +91,8 @@ class DataBase:
         cursor.execute("""INSERT INTO user_info
                         (chat_id, username)
                         VALUES (%s, %s)
+                        ON CONFLICT (chat_id)
+                        DO NOTHING;
                        """, (chat_id, username))
 
         connection.commit()

@@ -85,6 +85,10 @@ class BotParser:
 
         if len(stacked_article) != 0:
             print(np.array(stacked_article).shape)
+
+            if len(np.array(stacked_article).shape) > 2:
+                return self._stack_and_reshape(np.array(stacked_article), np.array(stacked_article).shape[1:])
+
             return self._stack_and_reshape(np.array(stacked_article), np.array(stacked_article).shape)
 
 
