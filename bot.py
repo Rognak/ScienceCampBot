@@ -202,7 +202,7 @@ def regular_choice(bot, update, context=None, user_data=None):
                                   render_message(key_words, title, authors, DOI, annotation, download_link)[0]), reply_markup=RESULTS_MARKUP)
         key_words, title, authors, DOI, annotation = render_message(key_words, title, authors, DOI, annotation, download_link)[-1]
         parser.register_watched(key_words, title,
-                                authors, DOI, annotation, update.message.chat_id)
+                                authors, DOI, annotation, update.message.chat_id, download_link)
         return SEARCH_RESULTLS
     else:
         bot.send_message(chat_id=update.message.chat_id,
