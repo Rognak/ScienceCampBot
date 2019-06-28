@@ -110,7 +110,7 @@ class BotParser:
         r = requests.get(article_url)
         hub = BeautifulSoup(r.text, 'lxml')
         image = hub.find('img', {'id': 'captcha'})['src']
-        return scihub_url + image
+        return scihub_url + image[1:]
 
     @staticmethod
     def check_url(function):
