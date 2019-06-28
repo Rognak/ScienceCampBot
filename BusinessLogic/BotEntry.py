@@ -106,23 +106,25 @@ class BotParser:
 
 
     @staticmethod
-    def parse_captcha(article_url):
-        r = requests.get(article_url)
-        hub = BeautifulSoup(r.text, 'lxml')
+    def parse_captcha(artcle_url, response_text):
+        hub = BeautifulSoup(response_text, 'lxml')
         image = hub.find('img', {'id': 'captcha'})['src']
-        return scihub_url + image[1:]
+        id = hub.find('img', {'id': 'captcha'})['id']
+        print(artcle_url)
+        print(artcle_url[7:].split('/'))
+        return artcle_url[7:].split('/')[1] + image, id
 
     @staticmethod
     def check_url(function):
 
-        def wrapper(article_url, doi):
+        def wrapper(bot, update, article_url, doi, filename):
             db = DataBase(database_connection_settings)
             connection = db.make_connection()
 
             session = requests.Session()
             article = session.get(article_url)
 
-            if article_url.status_code == 404:
+            if article.status_code == 404:
                 new_article_url = BotParser._parse_scihub(doi)
                 DataBase.update_url(connection, new_article_url)
                 db.close_connection(connection)
@@ -137,7 +139,7 @@ class BotParser:
                     return "Connection timed out"
             else:
                 db.close_connection(connection)
-                function(article_url, doi)
+                function(bot, update, article_url, doi, filename)
 
         return wrapper
 

@@ -149,22 +149,36 @@ def cite_it(bot, chat_id, doi):
 @BotParser.check_url
 def download_it(bot, update, article_url, doi, filename):
     """downloads a file via url and writes it to the local storage with given name"""
-    response = requests.get(article_url)
-    if response.headers['Content-Type'].split(' ')[0][:-1] == 'application/pdf':
+    session = requests.Session()
+    response = session.get(article_url)
+    print(response.headers['Content-Type'].split(' ')[0])
+    if response.headers['Content-Type'].split(' ')[0] == 'application/pdf':
+        print('im here')
         with open(os.path.join('downloads', filename+'.pdf'), 'wb+') as downloaded_file:
             downloaded_file.write(response.content)
+            print('iiiiii')
         return os.path.join('downloads', filename+'.pdf')
     else:
+        print('imama')
         isNotOk = True
         while isNotOk:
-            image_url = BotParser.parse_captcha(article_url)
-            bot.send_document(chat_id=update.message.chat_id,
+            func_resp = BotParser.parse_captcha(article_url, response.text)
+            image_url = func_resp[0]
+            print(image_url)
+            id = func_resp[1]
+            bot.send_photo(chat_id=update.message.chat_id,
                               photo=image_url,
                               caption="Решите следующую капчу и напишите ответ в сообщении:",
                               reply_markup=telegram.ForceReply()
                              )
             reply = update.message.text
             # isNotOk = some.post.zapros(reply)
+
+            session.post(article_url, data = {"id": id, "answer": reply})
+            response = session.get(article_url)
+            if response.headers['Content-Type'].split(' ')[0] == 'application/pdf':
+                isNotOk = False
+
             if isNotOk:
                 bot.send_message(chat_id=update.message.chat_id,
                                  text="Неверно!",
@@ -273,6 +287,7 @@ def received_search_results(bot, update, context=None, user_data=None):
                                          doi,
                                          hashlib.md5(bytes(render_message(key_words, title, authors, 
                                                            doi, annotation, download_link)[-1][1], encoding='utf-8')).hexdigest())
+                print(local_file)
                 bot.send_document(chat_id=update.message.chat_id,
                                 #   caption="А вот и файл:",
                                   document=open(local_file, 'rb'),
