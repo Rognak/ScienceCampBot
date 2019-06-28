@@ -21,6 +21,7 @@ from telegram import ReplyKeyboardMarkup
 from telegram.ext import (Updater, CommandHandler, MessageHandler, Filters, RegexHandler,
                           ConversationHandler)
 import hashlib
+from BusinessLogic import database_class
 
 # import crossref
 from crossref.restful import Works
@@ -84,12 +85,30 @@ SEARCH_MARKUP = ReplyKeyboardMarkup(SEARCH_KEYBOARD, one_time_keyboard=True)
 SETTINGS_MARKUP = ReplyKeyboardMarkup(SETTINGS_KEYBOARD, one_time_keyboard=True)
 RESULTS_MARKUP = ReplyKeyboardMarkup(RESULTS_KEYBOARD, one_time_keyboard=True)
 
+
+@BotParser.check_url
+def download(article_url, doi):
+    r = requests.get(article_url)
+
+    if r.headers['Content-Type'].split(' ')[0][:-1] == 'application/pdf':
+        pass
+        #TODO скачать
+    else:
+        image_url = BotParser.parse_captcha(article_url)
+        #TODO выдать капчу
+
 def start(bot, update):
     """Starts conversation"""
     bot.send_message(chat_id=update.message.chat_id,
                      text="Привет! Я - Бот ScienceCamp и я помогу вам в ваших исследованиях."
                           " Просто введите ваш запрос и нажмите 'Искать!' на клавиатуре",
                      reply_markup=SEARCH_MARKUP)
+
+    db = database_class.DataBase(database_connection_settings)
+    connection = db.make_connection()
+    db.register_user(connection, update.message.chat_id, update.message.from_user['username'])
+    db.close_connection(connection)
+
     return IDLE
 
 # def start(bot, update, context):

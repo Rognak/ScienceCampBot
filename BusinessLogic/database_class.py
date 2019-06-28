@@ -99,7 +99,8 @@ class DataBase:
         cursor.close()
 
 
-    def update_url(self, connection, new_url):
+    @staticmethod
+    def update_url(connection, new_url):
         cursor = connection.cursor()
 
         cursor.execute("""UPDATE search_results SET scihub_url = '%s' WHERE scihub_url = %s""" % (new_url))

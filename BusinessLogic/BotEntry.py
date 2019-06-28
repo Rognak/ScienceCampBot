@@ -92,6 +92,55 @@ class BotParser:
             return self._stack_and_reshape(np.array(stacked_article), np.array(stacked_article).shape)
 
 
+    @staticmethod
+    def _parse_scihub(self, doi):
+        r = requests.get(scihub_url + doi)
+        hub = BeautifulSoup(r.text, 'lxml')
+        res = hub.find('div', {'id': 'buttons'}).ul.contents[3].a['onclick']
+        res_hub = re.findall(patterns['url'], res)[0]
+        if res_hub.startswith('https://'):
+            sci_request = res_hub
+        else:
+            sci_request = 'https://' + res[2:]
+        return sci_request
+
+
+    @staticmethod
+    def parse_captcha(article_url):
+        r = requests.get(article_url)
+        hub = BeautifulSoup(r.text, 'lxml')
+        image = hub.find('img', {'id': 'captcha'})['src']
+        return scihub_url + image
+
+    @staticmethod
+    def check_url(function):
+
+        def wrapper(article_url, doi):
+            db = DataBase(database_connection_settings)
+            connection = db.make_connection()
+
+            session = requests.Session()
+            article = session.get(article_url)
+
+            if article_url.status_code == 404:
+                new_article_url = BotParser._parse_scihub(doi)
+                DataBase.update_url(connection, new_article_url)
+                db.close_connection(connection)
+
+            elif article.status_code == 504:
+                cicle = 0
+                while article.status_code != 200 and cicle != 10:
+                    article = requests.get(article_url)
+
+                if cicle == 10 and article.status_code == 504:
+                    db.close_connection(connection)
+                    return "Connection timed out"
+            else:
+                db.close_connection(connection)
+                function(article_url, doi)
+
+        return wrapper
+
     def _stack_and_reshape(self, array, shape):
         stacked = np.stack(array)
         stacked = stacked.reshape(shape[0], shape[1])
