@@ -139,7 +139,7 @@ class BotParser:
                     return "Connection timed out"
             else:
                 db.close_connection(connection)
-                function(bot, update, article_url, doi, filename)
+                function(bot, update, article_url, doi, filename, context=context, user_data=user_data)
 
         return wrapper
 

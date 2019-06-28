@@ -158,8 +158,8 @@ def download_it(bot, update, article_url, doi, filename, context=None, user_data
     if response.headers['Content-Type'].split(' ')[0] == 'application/pdf':
         with open(os.path.join('downloads', filename+'.pdf'), 'wb+') as downloaded_file:
             downloaded_file.write(response.content)
-            bot.send_document(chat_id=update.message.chat_id,
-                         #   caption="А вот и файл:",
+        bot.send_document(chat_id=update.message.chat_id,
+                      #   caption="А вот и файл:",
                           document=open(local_file, 'rb'),
                          )
         return SEARCH_RESULTLS
@@ -170,7 +170,6 @@ def download_it(bot, update, article_url, doi, filename, context=None, user_data
         bot.send_photo(chat_id=update.message.chat_id,
                        photo=image_url,
                        caption="Решите следующую капчу и напишите ответ в сообщении:",
-                       reply_markup=telegram.ForceReply()
                       )
         reply = update.message.text
         user_data['capcha-id'] = id
@@ -190,8 +189,9 @@ def downloading_file(bot, update, context=None, user_data=None):
                                           doi, annotation, download_link)[1],
                            doi,
                            hashlib.md5(bytes(render_message(key_words, title, authors, 
-                                             doi, annotation, download_link)[-1][1], encoding='utf-8')).hexdigest(),
-                            user_data=user_data)
+                                                            doi, annotation, download_link)[-1][1], 
+                                             encoding='utf-8')).hexdigest(),
+                           user_data=user_data)
     except telegram.TelegramError:
         bot.send_message(chat_id=update.message.chat_id,
                          text="Что-то пошло не так. Я не смог отправить вам этот документ.")
