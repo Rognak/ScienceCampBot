@@ -190,7 +190,8 @@ def downloading_file(bot, update, context=None, user_data=None):
                                           doi, annotation, download_link)[1],
                            doi,
                            hashlib.md5(bytes(render_message(key_words, title, authors, 
-                                             doi, annotation, download_link)[-1][1], encoding='utf-8')).hexdigest())
+                                             doi, annotation, download_link)[-1][1], encoding='utf-8')).hexdigest(),
+                            user_data=user_data)
     except telegram.TelegramError:
         bot.send_message(chat_id=update.message.chat_id,
                          text="Что-то пошло не так. Я не смог отправить вам этот документ.")
@@ -543,12 +544,12 @@ def main():
                                               pass_user_data=True),
                               ],
             DOWNLOADING: [MessageHandler(Filters.text,
-                                              downloading_file,
-                                              pass_user_data=True)
+                                         downloading_file,
+                                         pass_user_data=True)
                          ],
             TYPING_REPLY: [MessageHandler(Filters.text,
-                                              parsing_capcha,
-                                              pass_user_data=True)
+                                          parsing_capcha,
+                                          pass_user_data=True)
                           ],
             },
 
