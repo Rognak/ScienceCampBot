@@ -67,10 +67,10 @@ SEARCH_KEYBOARD = [['Искать!', 'Мои настройки'],
                    ['Продвинутый поиск']
                   ]
 
-ADD_TAGS_KEYBOARD = [['Автор', 'Год издания', 'Название'],
-                     ['Аннотация', 'Ключевые слова'],
-                     ['Искать!'],
-                     ['Что-то другое...', 'Назад']]
+# ADD_TAGS_KEYBOARD = [['Автор', 'Год издания', 'Название'],
+#                      ['Аннотация', 'Ключевые слова'],
+#                      ['Искать!'],
+#                      ['Что-то другое...', 'Назад']]
 
 SETTINGS_KEYBOARD = [['Максимальное число результатов', 'Стандартная база данных поиска'], 
                      ['Назад']]
@@ -80,7 +80,7 @@ RESULTS_KEYBOARD = [['Следующий результат', 'Скачать',
                     ['Назад']]
 
 SEARCH_MARKUP = ReplyKeyboardMarkup(SEARCH_KEYBOARD, one_time_keyboard=True)
-TAGS_MARKUP = ReplyKeyboardMarkup(ADD_TAGS_KEYBOARD, one_time_keyboard=True)
+# TAGS_MARKUP = ReplyKeyboardMarkup(ADD_TAGS_KEYBOARD, one_time_keyboard=True)
 SETTINGS_MARKUP = ReplyKeyboardMarkup(SETTINGS_KEYBOARD, one_time_keyboard=True)
 RESULTS_MARKUP = ReplyKeyboardMarkup(RESULTS_KEYBOARD, one_time_keyboard=True)
 
@@ -196,83 +196,6 @@ def back_to_idle(bot, update, context=None, user_data=None):
                      text='Возвращаюсь в простой поиск.',
                      reply_markup=SEARCH_MARKUP)
     return IDLE
-
-def regular_choice(bot, update, context=None, user_data=None):
-    """Gets regular category from the keyboard for extended search"""
-
-    text = update.message.text
-    # if user_data:
-    #     user_data['choice'] = text
-    user_data['choice'] = text
-    if user_data.get('Запрос'):
-        del user_data['Запрос']
-
-    if text == 'Назад':
-        bot.send_message(chat_id=update.message.chat_id,
-                         text='Возвращаюсь в простой поиск.',
-                         reply_markup=SEARCH_MARKUP)
-        return IDLE
-    elif text == 'Искать!':
-        del user_data['choice']
-        bot.send_message(chat_id=update.message.chat_id,
-                         text="Я ищу:"
-                         " {} "
-                         "Подождите немного...".format(
-                             facts_to_str(user_data)),
-                         reply_markup=RESULTS_MARKUP)
-        bot.send_chat_action(chat_id=update.message.chat_id, action=telegram.ChatAction.TYPING)
-        parser = BotParser(search_settings)
-        results = parser.parse(user_data['Запрос'], update.message.chat_id)
-        # parser = EntryPoint.MainParser(search_settings)
-        # results = parser.search(user_data['Запрос'], max_res=50)
-        # results = [['Боба Фетт', ['ХЗ'], '3545465', 'Fugler snakker aus mennen und jeg leker under bordet', 'https://github.com/dhansel/Altair8800/raw/master/Documentation.pdf'],
-        #            ['Старый Штиблет', ['Сатана', 'Я'], '1244567', 'London is the capital of Great Britain!', 'https://github.com/dhansel/Altair8800/raw/master/Documentation.pdf'],
-        #            ['Водка, Черти, Пистолет', ['Я'], '454554', 'London is the capital of Great Britain!', 'https://github.com/dhansel/Altair8800/raw/master/Documentation.pdf']]
-        user_data['results'] = results
-        user_data['pagination'] = 0
-        result = user_data['results'][user_data['pagination']]
-        key_words, title, authors, doi, annotation, download_link = result
-        bot.send_message(chat_id=update.message.chat_id,
-                         text="Может вам подойдет это:\n"
-                              " {} \n"
-                              "Чтобы показать другие результаты, нажмите "
-                              "'Следующий результат' или 'Предыдущий результат'."
-                              " Для возврата к поиску, нажмите 'Назад'".format(
-                                  render_message(key_words, title, authors, doi, annotation, download_link)[0]), reply_markup=RESULTS_MARKUP)
-        key_words, title, authors, doi, annotation = render_message(key_words, title, authors, 
-                                                                    doi, annotation, download_link)[-1]
-        parser.register_watched(key_words, title,
-                                authors, doi, annotation, update.message.chat_id, download_link)
-        return SEARCH_RESULTLS
-    else:
-        bot.send_message(chat_id=update.message.chat_id,
-                         text='Назовёте "{}"? Это может мне помочь!'.format(text.lower()))
-
-        return TYPING_REPLY
-
-def custom_choice(bot, update, context=None, user_data=None):
-    """Adds custom category to the context"""
-    bot.send_message(chat_id=update.message.chat_id,
-                     text='Окей, сначала скажи что это будет, '
-                          'например: "DOI"')
-
-    return TYPING_CHOICE
-
-def received_information(bot, update, context=None, user_data=None):
-    """Shows what context has been formed"""
-    # user_data = context.user_data
-    text = update.message.text
-    category = user_data['choice']
-    user_data[category] = text
-    del user_data['choice']
-
-    bot.send_message(chat_id=update.message.chat_id,
-                     text="Окей! Вы сказали, что мы посмотрим на:"
-                          "{}"
-                          "Вы можете упомянуть что-то еще или сменить тему разговора.".format(
-                              facts_to_str(user_data)), reply_markup=TAGS_MARKUP)
-
-    return CHOOSING
 
 def received_search_results(bot, update, context=None, user_data=None):
     """Shows results of the search one by one"""
@@ -406,11 +329,6 @@ def idle_callback(bot, update, context=None, user_data=None):
                                   " Отправьте ваш запрос в ответном сообщении.", 
                              reply_markup=SEARCH_MARKUP)
             return IDLE
-    elif current_action == 'Продвинутый поиск':
-        bot.send_message(chat_id=update.message.chat_id,
-                         text="Выбран продвинутый поиск.",
-                         reply_markup=TAGS_MARKUP)
-        return CHOOSING
     elif current_action == 'Мои настройки':
         # if not user_data and context:
         #     user_data = context.user_data
@@ -553,30 +471,6 @@ def main():
                                               received_setting_value,
                                               pass_user_data=True),
                               ],
-
-            CHOOSING: [RegexHandler('^(Автор|Год издания|Название|Аннотация|Ключевые слова)$',
-                                    regular_choice,
-                                    pass_user_data=True),
-                       RegexHandler('^Искать!$',
-                                    regular_choice,
-                                    pass_user_data=True),
-                       RegexHandler('^Назад$',
-                                    back_to_idle,
-                                    pass_user_data=True),
-                       RegexHandler('^Что-то еще...$',
-                                    custom_choice,
-                                    pass_user_data=True),
-                      ],
-
-            TYPING_CHOICE: [MessageHandler(Filters.text,
-                                           regular_choice,
-                                           pass_user_data=True),
-                           ],
-
-            TYPING_REPLY: [MessageHandler(Filters.text,
-                                          received_information,
-                                          pass_user_data=True),
-                          ],
             },
 
         fallbacks=[RegexHandler('^Закончить.$', done, pass_user_data=True)]
