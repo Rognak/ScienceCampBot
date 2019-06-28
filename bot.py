@@ -37,7 +37,7 @@ logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s
 
 LOGGER = logging.getLogger(__name__)
 
-IDLE, SEARCH_RESULTLS, CHOOSING, TYPING_CHOICE, SETTING_CHANGING, SETTING_CHOOSING, TYPING_REPLY = range(7)
+IDLE, SEARCH_RESULTLS, SENDING_CAPCHA, DOWNLOADING, SETTING_CHANGING, SETTING_CHOOSING, TYPING_REPLY = range(7)
 
 SETTINGS_STRINGS = """\n
 \r'Максимальное число результатов' - определяет, сколько статей найти (сейчас - {0});\n
@@ -145,47 +145,94 @@ def cite_it(bot, chat_id, doi):
                           document=open(os.path.join('downloads', filename+'.bib'), 'rb'),
                          )
 
-
 @BotParser.check_url
-def download_it(bot, update, article_url, doi, filename):
+def download_it(bot, update, article_url, doi, filename, context=None, user_data=None):
     """downloads a file via url and writes it to the local storage with given name"""
     session = requests.Session()
     response = session.get(article_url)
-    print(response.headers['Content-Type'].split(' ')[0])
+    user_data['capcha-response'] = response
+    user_data['file-name'] = filename
+    user_data['article-url'] = article_url
+    user_data['session'] = session
+    # print(response.headers['Content-Type'].split(' ')[0])
     if response.headers['Content-Type'].split(' ')[0] == 'application/pdf':
-        print('im here')
         with open(os.path.join('downloads', filename+'.pdf'), 'wb+') as downloaded_file:
             downloaded_file.write(response.content)
-            print('iiiiii')
-        return os.path.join('downloads', filename+'.pdf')
+            bot.send_document(chat_id=update.message.chat_id,
+                         #   caption="А вот и файл:",
+                          document=open(local_file, 'rb'),
+                         )
+        return SEARCH_RESULTLS
     else:
-        print('imama')
-        isNotOk = True
-        while isNotOk:
-            func_resp = BotParser.parse_captcha(article_url, response.text)
-            image_url = func_resp[0]
-            print(image_url)
-            id = func_resp[1]
-            bot.send_photo(chat_id=update.message.chat_id,
-                              photo=image_url,
-                              caption="Решите следующую капчу и напишите ответ в сообщении:",
-                              reply_markup=telegram.ForceReply()
-                             )
-            reply = update.message.text
-            # isNotOk = some.post.zapros(reply)
+        func_resp = BotParser.parse_captcha(article_url, response.text)
+        image_url = func_resp[0]
+        id = func_resp[1]
+        bot.send_photo(chat_id=update.message.chat_id,
+                       photo=image_url,
+                       caption="Решите следующую капчу и напишите ответ в сообщении:",
+                       reply_markup=telegram.ForceReply()
+                      )
+        reply = update.message.text
+        user_data['capcha-id'] = id
+        session.post(article_url, data = {"id": id, "answer": reply})
+        response = session.get(article_url)
+        return TYPING_REPLY
 
-            session.post(article_url, data = {"id": id, "answer": reply})
-            response = session.get(article_url)
-            if response.headers['Content-Type'].split(' ')[0] == 'application/pdf':
-                isNotOk = False
 
-            if isNotOk:
-                bot.send_message(chat_id=update.message.chat_id,
-                                 text="Неверно!",
-                                )
+def downloading_file(bot, update, context=None, user_data=None):
+    key_words, title, authors, doi, annotation, download_link = user_data['results'][user_data['pagination']]
+    try:
+        bot.send_chat_action(chat_id=update.message.chat_id, 
+                             action=telegram.ChatAction.UPLOAD_DOCUMENT)
+        #hashlib.md5(bytes(doi, encoding='utf-8')).hexdigest()
+        return download_it(bot, update,
+                           render_message(key_words, title, authors, 
+                                          doi, annotation, download_link)[1],
+                           doi,
+                           hashlib.md5(bytes(render_message(key_words, title, authors, 
+                                             doi, annotation, download_link)[-1][1], encoding='utf-8')).hexdigest())
+    except telegram.TelegramError:
+        bot.send_message(chat_id=update.message.chat_id,
+                         text="Что-то пошло не так. Я не смог отправить вам этот документ.")
+        print(traceback.format_exc())
+        return SEARCH_RESULTLS
+
+def parsing_capcha(bot, update, context=None, user_data=None):
+    """Handles capcha input"""
+    response = user_data['capcha-response']
+    filename = user_data['file-name']
+    article_url = user_data['article-url']
+    session = user_data['session']
+    id = user_data['capcha-id']
+    reply = update.message.text
+    session.post(article_url, data = {"id": id, "answer": reply})
+    response = session.get(article_url)
+
+    if response.headers['Content-Type'].split(' ')[0] == 'application/pdf':
         with open(os.path.join('downloads', filename+'.pdf'), 'wb+') as downloaded_file:
             downloaded_file.write(response.content)
-        return os.path.join('downloads', filename+'.pdf')
+            bot.send_document(chat_id=update.message.chat_id,
+                            #   caption="А вот и файл:",
+                              document=open(local_file, 'rb'),
+                             )
+        return SEARCH_RESULTLS
+    else:
+        func_resp = BotParser.parse_captcha(article_url, response.text)
+        image_url = func_resp[0]
+        id = func_resp[1]
+        bot.send_photo(chat_id=update.message.chat_id,
+                       photo=image_url,
+                       caption="Решите следующую капчу и напишите ответ в сообщении:",
+                       reply_markup=telegram.ForceReply()
+                      )
+        reply = update.message.text
+
+        session.post(article_url, data={"id": id, "answer": reply})
+        response = session.get(article_url)
+        bot.send_message(chat_id=update.message.chat_id,
+                         text="Неверно!",
+                        )
+        return TYPING_REPLY
 
 def results_to_str(search_results):
     """Converts search results into str"""
@@ -276,26 +323,7 @@ def received_search_results(bot, update, context=None, user_data=None):
                 bot.send_message(chat_id=update.message.chat_id,
                                  text="Это последний из найденных результатов.")
         elif text == 'Скачать':
-            key_words, title, authors, doi, annotation, download_link = user_data['results'][user_data['pagination']]
-            try:
-                bot.send_chat_action(chat_id=update.message.chat_id, 
-                                     action=telegram.ChatAction.UPLOAD_DOCUMENT)
-                #hashlib.md5(bytes(doi, encoding='utf-8')).hexdigest()
-                local_file = download_it(bot, update,
-                                         render_message(key_words, title, authors, 
-                                                        doi, annotation, download_link)[1],
-                                         doi,
-                                         hashlib.md5(bytes(render_message(key_words, title, authors, 
-                                                           doi, annotation, download_link)[-1][1], encoding='utf-8')).hexdigest())
-                print(local_file)
-                bot.send_document(chat_id=update.message.chat_id,
-                                #   caption="А вот и файл:",
-                                  document=open(local_file, 'rb'),
-                                 )
-            except telegram.TelegramError:
-                bot.send_message(chat_id=update.message.chat_id,
-                                 text="Что-то пошло не так. Я не смог отправить вам этот документ.")
-                print(traceback.format_exc())
+            return DOWNLOADING
         elif text == 'Цитировать (BibTex)':
             key_words, title, authors, doi, annotation, download_link = user_data['results'][user_data['pagination']]
             try:
@@ -506,16 +534,22 @@ def main():
                                            back_to_idle,
                                            pass_user_data=True),
                              ],
-
             SETTING_CHOOSING: [RegexHandler('^(Максимальное число результатов|Стандартная база данных поиска|Назад)$',
                                             settings_callback,
                                             pass_user_data=True),
                               ],
-
             SETTING_CHANGING: [MessageHandler(Filters.text,
                                               received_setting_value,
                                               pass_user_data=True),
                               ],
+            DOWNLOADING: [MessageHandler(Filters.text,
+                                              downloading_file,
+                                              pass_user_data=True)
+                         ],
+            TYPING_REPLY: [MessageHandler(Filters.text,
+                                              parsing_capcha,
+                                              pass_user_data=True)
+                          ],
             },
 
         fallbacks=[RegexHandler('^Закончить.$', done, pass_user_data=True)]

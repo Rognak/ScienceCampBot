@@ -117,7 +117,7 @@ class BotParser:
     @staticmethod
     def check_url(function):
 
-        def wrapper(bot, update, article_url, doi, filename):
+        def wrapper(bot, update, article_url, doi, filename, context=None, user_data=None):
             db = DataBase(database_connection_settings)
             connection = db.make_connection()
 
