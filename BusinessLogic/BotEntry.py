@@ -93,7 +93,7 @@ class BotParser:
 
 
     @staticmethod
-    def _parse_scihub(self, doi):
+    def _parse_scihub(doi):
         r = requests.get(scihub_url + doi)
         hub = BeautifulSoup(r.text, 'lxml')
         res = hub.find('div', {'id': 'buttons'}).ul.contents[3].a['onclick']

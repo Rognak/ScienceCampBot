@@ -85,18 +85,6 @@ SEARCH_MARKUP = ReplyKeyboardMarkup(SEARCH_KEYBOARD, one_time_keyboard=True)
 SETTINGS_MARKUP = ReplyKeyboardMarkup(SETTINGS_KEYBOARD, one_time_keyboard=True)
 RESULTS_MARKUP = ReplyKeyboardMarkup(RESULTS_KEYBOARD, one_time_keyboard=True)
 
-
-@BotParser.check_url
-def download(article_url, doi):
-    r = requests.get(article_url)
-
-    if r.headers['Content-Type'].split(' ')[0][:-1] == 'application/pdf':
-        pass
-        #TODO скачать
-    else:
-        image_url = BotParser.parse_captcha(article_url)
-        #TODO выдать капчу
-
 def start(bot, update):
     """Starts conversation"""
     bot.send_message(chat_id=update.message.chat_id,
@@ -157,12 +145,33 @@ def cite_it(bot, chat_id, doi):
                           document=open(os.path.join('downloads', filename+'.bib'), 'rb'),
                          )
 
-def download_it(url, filename):
+
+@BotParser.check_url
+def download_it(bot, update, article_url, doi, filename):
     """downloads a file via url and writes it to the local storage with given name"""
-    response = requests.get(url, stream=True)
-    with open(os.path.join('downloads', filename+'.pdf'), 'wb+') as downloaded_file:
-        downloaded_file.write(response.content)
-    return os.path.join('downloads', filename+'.pdf')
+    response = requests.get(article_url)
+    if response.headers['Content-Type'].split(' ')[0][:-1] == 'application/pdf':
+        with open(os.path.join('downloads', filename+'.pdf'), 'wb+') as downloaded_file:
+            downloaded_file.write(response.content)
+        return os.path.join('downloads', filename+'.pdf')
+    else:
+        isNotOk = True
+        while isNotOk:
+            image_url = BotParser.parse_captcha(article_url)
+            bot.send_document(chat_id=update.message.chat_id,
+                              photo=image_url,
+                              caption="Решите следующую капчу и напишите ответ в сообщении:",
+                              reply_markup=telegram.ForceReply()
+                             )
+            reply = update.message.text
+            # isNotOk = some.post.zapros(reply)
+            if isNotOk:
+                bot.send_message(chat_id=update.message.chat_id,
+                                 text="Неверно!",
+                                )
+        with open(os.path.join('downloads', filename+'.pdf'), 'wb+') as downloaded_file:
+            downloaded_file.write(response.content)
+        return os.path.join('downloads', filename+'.pdf')
 
 def results_to_str(search_results):
     """Converts search results into str"""
@@ -258,8 +267,10 @@ def received_search_results(bot, update, context=None, user_data=None):
                 bot.send_chat_action(chat_id=update.message.chat_id, 
                                      action=telegram.ChatAction.UPLOAD_DOCUMENT)
                 #hashlib.md5(bytes(doi, encoding='utf-8')).hexdigest()
-                local_file = download_it(render_message(key_words, title, authors, 
-                                                        doi, annotation, download_link)[1], 
+                local_file = download_it(bot, update,
+                                         render_message(key_words, title, authors, 
+                                                        doi, annotation, download_link)[1],
+                                         doi,
                                          hashlib.md5(bytes(render_message(key_words, title, authors, 
                                                            doi, annotation, download_link)[-1][1], encoding='utf-8')).hexdigest())
                 bot.send_document(chat_id=update.message.chat_id,
