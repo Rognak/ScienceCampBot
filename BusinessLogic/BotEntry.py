@@ -109,9 +109,10 @@ class BotParser:
     def parse_captcha(artcle_url, response_text):
         hub = BeautifulSoup(response_text, 'lxml')
         image = hub.find('img', {'id': 'captcha'})['src']
-        id = hub.find('img', {'id': 'captcha'})['id']
+        id = hub.find('input', {'name': 'id'})['value']
         print(artcle_url)
         print(artcle_url[7:].split('/'))
+        print(id)
         return artcle_url[7:].split('/')[1] + image, id
 
     @staticmethod

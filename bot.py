@@ -162,6 +162,7 @@ def download_it(bot, update, article_url, doi, filename, context=None, user_data
                          )
         return SEARCH_RESULTLS
     else:
+        print("Я попал в else download)it")
         func_resp = BotParser.parse_captcha(article_url, response.text)
         image_url = func_resp[0]
         id = func_resp[1]
@@ -169,11 +170,11 @@ def download_it(bot, update, article_url, doi, filename, context=None, user_data
                        photo=image_url,
                        caption="Решите следующую капчу и напишите ответ в сообщении:",
                       )
-        reply = update.message.text
+        # reply = update.message.text
         user_data['capcha-id'] = id
-        session.post(article_url, data={"id": id, "answer": reply})
-        response = session.get(article_url)
-        user_data['capcha-response'] = response
+        # session.post(article_url, data={"id": id, "answer": reply})
+        #response = session.get(article_url)
+        #user_data['capcha-response'] = response
         return TYPING_REPLY
 
 
@@ -204,11 +205,13 @@ def parsing_capcha(bot, update, context=None, user_data=None):
     article_url = user_data['article-url']
     session = user_data['session']
     id = user_data['capcha-id']
+    print('Переданный id: ' + str(id))
     reply = update.message.text
     session.post(article_url, data={"id": id, "answer": reply})
     response = session.get(article_url)
 
     if response.headers['Content-Type'].split(' ')[0] == 'application/pdf':
+        print('jojojojojo')
         with open(os.path.join('downloads', filename+'.pdf'), 'wb+') as downloaded_file:
             downloaded_file.write(response.content)
         bot.send_document(chat_id=update.message.chat_id,
@@ -217,6 +220,7 @@ def parsing_capcha(bot, update, context=None, user_data=None):
                          )
         return SEARCH_RESULTLS
     else:
+        print("gfgjgfcffghjgdsdfghgfdgh")
         func_resp = BotParser.parse_captcha(article_url, response.text)
         image_url = func_resp[0]
         id = func_resp[1]
@@ -226,11 +230,12 @@ def parsing_capcha(bot, update, context=None, user_data=None):
                     #    reply_markup=telegram.ForceReply()
                       )
 
-        session.post(article_url, data={"id": id, "answer": reply})
-        response = session.get(article_url)
-        bot.send_message(chat_id=update.message.chat_id,
-                         text="Неверно!",
-                        )
+        #session.post(article_url, data={"id": id, "answer": reply})
+        # response = session.get(article_url)
+        # bot.send_message(chat_id=update.message.chat_id,
+        #                  text="Неверно!",
+        #                 )
+        user_data['capcha-id'] = id
         return TYPING_REPLY
 
 def results_to_str(search_results):
