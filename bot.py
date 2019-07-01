@@ -65,7 +65,6 @@ if not os.path.exists('downloads'):
 TRANSLATOR = Translator()
 
 SEARCH_KEYBOARD = [['Искать!', 'Мои настройки'],
-                   ['Продвинутый поиск']
                   ]
 
 # ADD_TAGS_KEYBOARD = [['Автор', 'Год издания', 'Название'],
@@ -159,8 +158,7 @@ def download_it(bot, update, article_url, doi, filename, context=None, user_data
         with open(os.path.join('downloads', filename+'.pdf'), 'wb+') as downloaded_file:
             downloaded_file.write(response.content)
         bot.send_document(chat_id=update.message.chat_id,
-                      #   caption="А вот и файл:",
-                          document=open(local_file, 'rb'),
+                          document=open(os.path.join('downloads', filename+'.pdf'), 'rb'),
                          )
         return SEARCH_RESULTLS
     else:
@@ -173,19 +171,20 @@ def download_it(bot, update, article_url, doi, filename, context=None, user_data
                       )
         reply = update.message.text
         user_data['capcha-id'] = id
-        session.post(article_url, data = {"id": id, "answer": reply})
+        session.post(article_url, data={"id": id, "answer": reply})
         response = session.get(article_url)
+        user_data['capcha-response'] = response
         return TYPING_REPLY
 
 
 def downloading_file(bot, update, context=None, user_data=None):
     key_words, title, authors, doi, annotation, download_link = user_data['results'][user_data['pagination']]
     try:
-        bot.send_chat_action(chat_id=update.message.chat_id, 
+        bot.send_chat_action(chat_id=update.message.chat_id,
                              action=telegram.ChatAction.UPLOAD_DOCUMENT)
         #hashlib.md5(bytes(doi, encoding='utf-8')).hexdigest()
         return download_it(bot, update,
-                           render_message(key_words, title, authors, 
+                           render_message(key_words, title, authors,
                                           doi, annotation, download_link)[1],
                            doi,
                            hashlib.md5(bytes(render_message(key_words, title, authors, 
@@ -206,16 +205,16 @@ def parsing_capcha(bot, update, context=None, user_data=None):
     session = user_data['session']
     id = user_data['capcha-id']
     reply = update.message.text
-    session.post(article_url, data = {"id": id, "answer": reply})
+    session.post(article_url, data={"id": id, "answer": reply})
     response = session.get(article_url)
 
     if response.headers['Content-Type'].split(' ')[0] == 'application/pdf':
         with open(os.path.join('downloads', filename+'.pdf'), 'wb+') as downloaded_file:
             downloaded_file.write(response.content)
-            bot.send_document(chat_id=update.message.chat_id,
-                            #   caption="А вот и файл:",
-                              document=open(local_file, 'rb'),
-                             )
+        bot.send_document(chat_id=update.message.chat_id,
+                        #   caption="А вот и файл:",
+                          document=open(os.path.join('downloads', filename+'.pdf'), 'rb'),
+                         )
         return SEARCH_RESULTLS
     else:
         func_resp = BotParser.parse_captcha(article_url, response.text)
@@ -224,9 +223,8 @@ def parsing_capcha(bot, update, context=None, user_data=None):
         bot.send_photo(chat_id=update.message.chat_id,
                        photo=image_url,
                        caption="Решите следующую капчу и напишите ответ в сообщении:",
-                       reply_markup=telegram.ForceReply()
+                    #    reply_markup=telegram.ForceReply()
                       )
-        reply = update.message.text
 
         session.post(article_url, data={"id": id, "answer": reply})
         response = session.get(article_url)
@@ -267,6 +265,7 @@ def results_to_str(search_results):
     return html_pages
 
 def render_message(key_words, title, authors, doi, annotation, download_link):
+    """Renders metadata into telegram message"""
     with open('templates/response_template.md', 'r', encoding='UTF-8') as ifile:
         template = ifile.read()
         message_content = template.format(page_title=title,
