@@ -184,14 +184,15 @@ def downloading_file(bot, update, context=None, user_data=None):
         bot.send_chat_action(chat_id=update.message.chat_id,
                              action=telegram.ChatAction.UPLOAD_DOCUMENT)
         #hashlib.md5(bytes(doi, encoding='utf-8')).hexdigest()
-        return download_it(bot, update,
-                           render_message(key_words, title, authors,
-                                          doi, annotation, download_link)[1],
-                           doi,
-                           hashlib.md5(bytes(render_message(key_words, title, authors, 
-                                                            doi, annotation, download_link)[-1][1], 
-                                             encoding='utf-8')).hexdigest(),
-                           user_data=user_data)
+        res = download_it(bot, update,
+                          render_message(key_words, title, authors,
+                                         doi, annotation, download_link)[1],
+                          doi,
+                          hashlib.md5(bytes(render_message(key_words, title, authors, 
+                                                           doi, annotation, download_link)[-1][1], 
+                                            encoding='utf-8')).hexdigest(),
+                          user_data=user_data)
+        return res
     except telegram.TelegramError:
         bot.send_message(chat_id=update.message.chat_id,
                          text="Что-то пошло не так. Я не смог отправить вам этот документ.")
