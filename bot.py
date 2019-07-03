@@ -317,7 +317,10 @@ def received_search_results(bot, update, context=None, user_data=None):
                     # Some search actions
                     parser = BotParser(search_settings)
                     #TODO: Нужно добавить в поиск "перелистывание страниц", а пока вызывается старая функция parse
-                    results = parser.parse(user_data['Запрос'], update.message.chat_id) #max_articles
+                    results = parser.parse(user_data['Запрос'], 
+                                           update.message.chat_id, 
+                                           max_articles=user_data['settings'].get(
+                                               'Максимальное число результатов', 50))
                     user_data['results'] += results
                     user_data['pagination'] += 1
             result = user_data['results'][user_data['pagination']]
@@ -392,7 +395,10 @@ def idle_callback(bot, update, context=None, user_data=None):
             bot.send_chat_action(chat_id=update.message.chat_id, action=telegram.ChatAction.TYPING)
             # Some search actions
             parser = BotParser(search_settings)
-            results = parser.parse(user_data['Запрос'], update.message.chat_id) #max_articles
+            results = parser.parse(user_data['Запрос'],
+                                   update.message.chat_id,
+                                   max_articles=user_data['settings'].get(
+                                       'Максимальное число результатов', 50))
             user_data['results'] = results
             user_data['pagination'] = 0
             key_words, title, authors, doi, annotation, download_link = user_data['results'][user_data['pagination']]
