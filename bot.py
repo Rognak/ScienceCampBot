@@ -308,28 +308,40 @@ def received_search_results(bot, update, context=None, user_data=None):
         return IDLE
     else:
         if text == 'Следующий результат':
-            if user_data['pagination'] < len(user_data['results'])-1:
-                user_data['pagination'] += 1
-                result = user_data['results'][user_data['pagination']]
-                key_words, title, authors, doi, annotation, download_link = result
-                bot.send_message(chat_id=update.message.chat_id,
-                                 text="Может вам подойдет это:\n",
-                                 reply_markup=RESULTS_MARKUP)
-                bot.send_message(chat_id=update.message.chat_id,
-                                 text=render_message(key_words, title, authors, doi, annotation, download_link)[0],
-                                #  parse_mode="MARKDOWN"
-                                )
-                parser = BotParser(search_settings)
-                parser.register_watched(key_words, title,
-                                        authors, doi, annotation, update.message.chat_id, download_link)
-                bot.send_message(chat_id=update.message.chat_id,
-                                 text="Чтобы показать другие результаты, нажмите "
-                                      "'Следующий результат' или 'Предыдущий результат'."
-                                      " Для возврата к поиску, нажмите 'Назад'",
-                                 reply_markup=RESULTS_MARKUP)
-            else:
-                bot.send_message(chat_id=update.message.chat_id,
-                                 text="Это последний из найденных результатов.")
+            if not user_data['pagination'] < len(user_data['results'])-1:
+                if user_data.get('Запрос'):
+                    bot.send_message(chat_id=update.message.chat_id,
+                                    text="Ищу '{}'".format(user_data['Запрос']),
+                                    reply_markup=RESULTS_MARKUP)
+                    bot.send_chat_action(chat_id=update.message.chat_id, action=telegram.ChatAction.TYPING)
+                    # Some search actions
+                    parser = BotParser(search_settings)
+                    #TODO: Нужно добавить в поиск "перелистывание страниц", а пока вызывается старая функция parse
+                    results = parser.parse(user_data['Запрос'], update.message.chat_id) #max_articles
+                    user_data['results'] += results
+                    user_data['pagination'] += 1
+            result = user_data['results'][user_data['pagination']]
+            key_words, title, authors, doi, annotation, download_link = result
+            bot.send_message(chat_id=update.message.chat_id,
+                             text="Может вам подойдет это:\n",
+                             reply_markup=RESULTS_MARKUP)
+            bot.send_message(chat_id=update.message.chat_id,
+                                text=render_message(key_words, title, authors, doi, annotation, download_link)[0],
+                            #  parse_mode="MARKDOWN"
+                            )
+            bot.send_chat_action(chat_id=update.message.chat_id, action=telegram.ChatAction.TYPING)
+            parser = BotParser(search_settings)
+            parser.register_watched(key_words, title,
+                                    authors, doi, annotation, update.message.chat_id, download_link)
+            bot.send_chat_action(chat_id=update.message.chat_id, action=telegram.ChatAction.TYPING)
+            bot.send_message(chat_id=update.message.chat_id,
+                             text="Чтобы показать другие результаты, нажмите "
+                                  "'Следующий результат' или 'Предыдущий результат'."
+                                  " Для возврата к поиску, нажмите 'Назад'",
+                             reply_markup=RESULTS_MARKUP)              
+            # else:
+                # bot.send_message(chat_id=update.message.chat_id,
+                #                  text="Это последний из найденных результатов.")
         elif text == 'Скачать':
             return DOWNLOADING
         elif text == 'Цитировать (BibTex)':
