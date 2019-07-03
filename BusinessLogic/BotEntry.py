@@ -40,7 +40,10 @@ class BotParser:
 
 
                 doi = articles[i].find('div', {'class': 'issue-item_info'})
-                public_date = doi.find('span', {'class': 'pub-date-value'}).get_text().split(' ')[-1]
+                try:
+                    public_date = doi.find('span', {'class': 'pub-date-value'}).get_text().split(' ')[-1]
+                except:
+                    public_date = 'No pub data'
                 doi = re.search(patterns['doi'], doi.contents[-2].get_text())
                 doi = doi.group(0)
 
@@ -129,6 +132,7 @@ class BotParser:
                 new_article_url = BotParser._parse_scihub(doi)
                 DataBase.update_url(connection, new_article_url)
                 db.close_connection(connection)
+                return function(bot, update, new_article_url, doi, filename, context=context, user_data=user_data)
 
             elif article.status_code == 504:
                 cicle = 0
@@ -140,7 +144,7 @@ class BotParser:
                     return "Connection timed out"
             else:
                 db.close_connection(connection)
-                function(bot, update, article_url, doi, filename, context=context, user_data=user_data)
+                return function(bot, update, article_url, doi, filename, context=context, user_data=user_data)
 
         return wrapper
 

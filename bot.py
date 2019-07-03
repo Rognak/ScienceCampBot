@@ -211,6 +211,8 @@ def parsing_capcha(bot, update, context=None, user_data=None):
     session.post(article_url, data={"id": id, "answer": reply})
     response = session.get(article_url)
 
+    print(response.headers['Content-Type'].split(' ')[0])
+
     if response.headers['Content-Type'].split(' ')[0] == 'application/pdf':
         print('jojojojojo')
         with open(os.path.join('downloads', filename+'.pdf'), 'wb+') as downloaded_file:
