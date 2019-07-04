@@ -307,6 +307,8 @@ def received_search_results(bot, update, context=None, user_data=None):
                              user_request), reply_markup=SEARCH_MARKUP)
         return IDLE
     else:
+        if not user_data.get('settings'):
+            user_data['settings'] = STANDART_SETTINGS
         if text == 'Следующий результат':
             if not user_data['pagination'] < len(user_data['results'])-1:
                 if user_data.get('Запрос'):
@@ -382,7 +384,8 @@ def received_search_results(bot, update, context=None, user_data=None):
 
 def idle_callback(bot, update, context=None, user_data=None):
     """Commits search type"""
-
+    if not user_data.get('settings'):
+        user_data['settings'] = STANDART_SETTINGS
     # user_data = context.user_data
     current_action = update.message.text
     if current_action == 'Искать!':
@@ -431,8 +434,6 @@ def idle_callback(bot, update, context=None, user_data=None):
     elif current_action == 'Мои настройки':
         # if not user_data and context:
         #     user_data = context.user_data
-        if not user_data.get('settings'):
-            user_data['settings'] = STANDART_SETTINGS
         bot.send_message(chat_id=update.message.chat_id,
                          text="Загружаю настройки: \n {}".format(
                              SETTINGS_STRINGS.format(user_data['settings'].get(
@@ -475,6 +476,8 @@ def received_setting_value(bot, update, context=None, user_data=None):
     # user_data = context.user_data
     text = update.message.text
     category = user_data['choice']
+    if not user_data.get('settings'):
+        user_data['settings'] = STANDART_SETTINGS
     if category == 'Максимальное число результатов':
         try:
             user_data['settings'][category] = int(text)
