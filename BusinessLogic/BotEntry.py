@@ -87,12 +87,13 @@ class BotParser:
                     stacked_article.append(article)
 
         if len(stacked_article) != 0:
+            arr = np.array(stacked_article)
             print(np.array(stacked_article).shape)
 
             if len(np.array(stacked_article).shape) > 2:
-                return self._stack_and_reshape(np.array(stacked_article), np.array(stacked_article).shape[1:])
+                return self._stack_and_reshape(arr, (int(arr.size/arr.shape[-1]), arr.shape[-1]))
 
-            return self._stack_and_reshape(np.array(stacked_article), np.array(stacked_article).shape)
+            return self._stack_and_reshape(arr, arr.shape)
 
 
     @staticmethod
@@ -124,24 +125,22 @@ class BotParser:
         def wrapper(bot, update, article_url, doi, filename, context=None, user_data=None):
             db = DataBase(database_connection_settings)
             connection = db.make_connection()
+            print('im here bitch')
+            print(article_url)
 
             session = requests.Session()
-            article = session.get(article_url)
+            headers = {'User-Agent': 'Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:67.0) Gecko/20100101 Firefox/67.0'}
+            article = session.get(article_url, headers=headers)
+
+            print(article.status_code)
 
             if article.status_code == 404:
+                print('getting 404')
                 new_article_url = BotParser._parse_scihub(doi)
                 DataBase.update_url(connection, new_article_url)
                 db.close_connection(connection)
                 return function(bot, update, new_article_url, doi, filename, context=context, user_data=user_data)
 
-            elif article.status_code == 504:
-                cicle = 0
-                while article.status_code != 200 and cicle != 10:
-                    article = requests.get(article_url)
-
-                if cicle == 10 and article.status_code == 504:
-                    db.close_connection(connection)
-                    return "Connection timed out"
             else:
                 db.close_connection(connection)
                 return function(bot, update, article_url, doi, filename, context=context, user_data=user_data)
@@ -244,7 +243,10 @@ class BotParser:
                 if results is not None:
                     indexes = []
                     for i in range(len(results)):
-                        if results[i] in stored_results[:, 5]:
+                        print(stored_results[:, 5])
+                        #print(results)
+                        print(results[i])
+                        if results[i][3] in stored_results[:, 3]:
                             indexes.append(i)
                     prepared_results = np.vstack((all_results,results[indexes]))
                 else:
