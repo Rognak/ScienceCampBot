@@ -297,7 +297,7 @@ def received_search_results(bot, update, context=None, user_data=None):
         if not user_data.get('settings'):
             user_data['settings'] = STANDART_SETTINGS
         if text == 'Следующий результат':
-            if not user_data['pagination'] < len(user_data['results'])-1:
+            if user_data['pagination'] >= len(user_data['results'])-1:
                 if user_data.get('Запрос'):
                     bot.send_message(chat_id=update.message.chat_id,
                                     text="Ищу '{}'".format(user_data['Запрос']),
@@ -311,7 +311,7 @@ def received_search_results(bot, update, context=None, user_data=None):
                                            max_articles=user_data['settings'].get(
                                                'Максимальное число результатов', 50))
                     user_data['results'] += results
-                    user_data['pagination'] += 1
+            user_data['pagination'] += 1
             result = user_data['results'][user_data['pagination']]
             key_words, title, authors, doi, annotation, download_link = result
             bot.send_message(chat_id=update.message.chat_id,
