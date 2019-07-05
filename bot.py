@@ -125,7 +125,7 @@ def cite_it(bot, chat_id, doi):
         bot.send_message(chat_id=chat_id,
                          text="Этот документ не входит в базу цитирования CrossRef..."
                         )
-        return
+        return SEARCH_RESULTLS
     else:
         record = works.doi(doi)
         found, meta_bib = doi2bib.crossref.get_bib(doi)
@@ -133,7 +133,7 @@ def cite_it(bot, chat_id, doi):
             bot.send_message(chat_id=chat_id,
                              text="Документ не найден..."
                             )
-            return
+            return SEARCH_RESULTLS
         bot.send_message(chat_id=chat_id,
                          text="Цитирование по CrossRef:"
                         )
@@ -143,6 +143,7 @@ def cite_it(bot, chat_id, doi):
         bot.send_document(chat_id=chat_id,
                           document=open(os.path.join('downloads', filename+'.bib'), 'rb'),
                          )
+        return SEARCH_RESULTLS
 
 @BotParser.check_url
 def download_it(bot, update, article_url, doi, filename, context=None, user_data=None):
@@ -343,7 +344,8 @@ def received_search_results(bot, update, context=None, user_data=None):
                              text="Чтобы показать другие результаты, нажмите "
                                   "'Следующий результат' или 'Предыдущий результат'."
                                   " Для возврата к поиску, нажмите 'Назад'",
-                             reply_markup=RESULTS_MARKUP)              
+                             reply_markup=RESULTS_MARKUP)
+            return SEARCH_RESULTLS
             # else:
                 # bot.send_message(chat_id=update.message.chat_id,
                 #                  text="Это последний из найденных результатов.")
@@ -353,10 +355,12 @@ def received_search_results(bot, update, context=None, user_data=None):
             key_words, title, authors, doi, annotation, download_link = user_data['results'][user_data['pagination']]
             try:
                 cite_it(bot, update.message.chat_id, doi)
+                return SEARCH_RESULTLS
             except telegram.TelegramError:
                 bot.send_message(chat_id=update.message.chat_id,
                                  text="Что-то пошло не так. Я не смог отправить вам этот документ.")
-                print(traceback.format_exc()) 
+                print(traceback.format_exc())
+                return SEARCH_RESULTLS
         elif text == 'Предыдущий результат':
             if not user_data['pagination'] == 0:
                 user_data['pagination'] -= 1
