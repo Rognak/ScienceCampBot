@@ -206,6 +206,8 @@ def parsing_capcha(bot, update, context=None, user_data=None):
     filename = user_data['file-name']
     article_url = user_data['article-url']
     session = user_data['session']
+    if not user_data['count-tries']:
+        user_data['count-tries'] = 0
     id = user_data['capcha-id']
     print('Переданный id: ' + str(id))
     reply = update.message.text
@@ -224,23 +226,29 @@ def parsing_capcha(bot, update, context=None, user_data=None):
                          )
         return SEARCH_RESULTLS
     else:
-        print("gfgjgfcffghjgdsdfghgfdgh")
-        func_resp = BotParser.parse_captcha(article_url, response.text)
-        image_url = func_resp[0]
-        id = func_resp[1]
-        bot.send_photo(chat_id=update.message.chat_id,
-                       photo=image_url,
-                       caption="Решите следующую капчу и напишите ответ в сообщении:",
-                    #    reply_markup=telegram.ForceReply()
-                      )
+        if not user_data['count-tries'] == 3:
+            print("gfgjgfcffghjgdsdfghgfdgh")
+            func_resp = BotParser.parse_captcha(article_url, response.text)
+            image_url = func_resp[0]
+            id = func_resp[1]
+            bot.send_photo(chat_id=update.message.chat_id,
+                        photo=image_url,
+                        caption="Решите следующую капчу и напишите ответ в сообщении:",
+                        #    reply_markup=telegram.ForceReply()
+                        )
 
-        #session.post(article_url, data={"id": id, "answer": reply})
-        # response = session.get(article_url)
-        # bot.send_message(chat_id=update.message.chat_id,
-        #                  text="Неверно!",
-        #                 )
-        user_data['capcha-id'] = id
-        return TYPING_REPLY
+            #session.post(article_url, data={"id": id, "answer": reply})
+            # response = session.get(article_url)
+            # bot.send_message(chat_id=update.message.chat_id,
+            #                  text="Неверно!",
+            #                 )
+            user_data['capcha-id'] = id
+            return TYPING_REPLY
+        else:
+            bot.send_message(chat_id=update.message.chat_id,
+                         text="Статью не удалось скачать из-за недоступности URL.")
+            user_data['count-tries'] = 0
+            return SEARCH_RESULTLS
 
 def results_to_str(search_results):
     """Converts search results into str"""
