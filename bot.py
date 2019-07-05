@@ -204,7 +204,7 @@ def parsing_capcha(bot, update, context=None, user_data=None):
                          )
         return SEARCH_RESULTLS
     else:
-        if not user_data['count-tries'] == 3:
+        if user_data['count-tries'] < 3:
             print("gfgjgfcffghjgdsdfghgfdgh")
             func_resp = BotParser.parse_captcha(article_url, response.text)
             image_url = func_resp[0]
@@ -221,6 +221,7 @@ def parsing_capcha(bot, update, context=None, user_data=None):
             #                  text="Неверно!",
             #                 )
             user_data['capcha-id'] = id
+            user_data['count-tries'] += 1
             return TYPING_REPLY
         else:
             bot.send_message(chat_id=update.message.chat_id,
