@@ -342,13 +342,11 @@ def received_search_results(bot, update, context=None, user_data=None):
                                     action=telegram.ChatAction.UPLOAD_DOCUMENT)
                 #hashlib.md5(bytes(doi, encoding='utf-8')).hexdigest()
                 res = download_it(bot, update,
-                                render_message(key_words, title, authors,
-                                                doi, annotation, download_link)[1],
-                                doi,
-                                hashlib.md5(bytes(render_message(key_words, title, authors, 
-                                                                doi, annotation, download_link)[-1][1], 
-                                                    encoding='utf-8')).hexdigest(),
-                                user_data=user_data)
+                                  render_message(key_words, title, authors,
+                                                 doi, annotation, download_link)[1],
+                                  doi,
+                                  doi.replace('/', '-'),
+                                  user_data=user_data)
                 return res
             except telegram.TelegramError:
                 bot.send_message(chat_id=update.message.chat_id,
