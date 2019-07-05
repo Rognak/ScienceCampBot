@@ -18,8 +18,8 @@ import traceback
 from googletrans import Translator
 from telegram import ParseMode
 from telegram import ReplyKeyboardMarkup
-from telegram.ext import (Updater, CommandHandler, MessageHandler, Filters, RegexHandler, CallbackQueryHandler
-                          ConversationHandler)
+from telegram.ext import (Updater, CommandHandler, MessageHandler, Filters, RegexHandler, CallbackQueryHandler,
+                          ConversationHandler
 import hashlib
 from BusinessLogic import database_class
 
@@ -584,6 +584,7 @@ def main():
                                               pass_user_data=True),
                               ],
             DOWNLOADING: [CallbackQueryHandler(downloading_file,
+                                               pattern='^Скачать$',
                                                pass_user_data=True)
                          ],
             TYPING_REPLY: [MessageHandler(Filters.text,
