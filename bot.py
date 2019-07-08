@@ -155,6 +155,7 @@ def download_it(bot, update, article_url, doi, filename, context=None, user_data
     user_data['file-name'] = filename
     user_data['article-url'] = article_url
     user_data['session'] = session
+    user_data['doi'] = doi
     # print(response.headers['Content-Type'].split(' ')[0])
     if response.headers['Content-Type'].split(' ')[0] == 'application/pdf':
         with open(os.path.join('downloads', filename+'.pdf'), 'wb+') as downloaded_file:
@@ -210,14 +211,17 @@ def parsing_capcha(bot, update, context=None, user_data=None):
         return SEARCH_RESULTLS
     else:
         if response.status_code == 404:
-             print('getting 404')
+            print('getting 404')
 
-             connection = db.make_connection()
-             new_article_url = BotParser._parse_scihub(doi)
-             DataBase.update_url(connection, new_article_url)
-             db.close_connection(connection)
-            #TODO Здесь происходит обновление url в бд, необходимо передать doi и чтобы в случае 404 он сделал поиск по новой ссылке
+            doi = user_data['doi']
+            connection = db.make_connection()
+            new_article_url = BotParser._parse_scihub(doi)
+            DataBase.update_url(connection, new_article_url)
+            db.close_connection(connection)
 
+            res = download_it(bot, update, new_article_url,
+                              doi, user_data['file-name'], user_data=user_data)
+            return res
 
         if user_data['count-tries'] < 3:
             print("gfgjgfcffghjgdsdfghgfdgh")
