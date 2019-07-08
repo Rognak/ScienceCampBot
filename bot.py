@@ -38,17 +38,7 @@ logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s
 
 LOGGER = logging.getLogger(__name__)
 
-IDLE, SEARCH_RESULTLS, SENDING_CAPCHA, SETTING_CHANGING, SETTING_CHOOSING, TYPING_REPLY = range(6)
-
-SETTINGS_STRINGS = """\n
-\r'Максимальное число результатов' - определяет, сколько статей найти (сейчас - {0});\n
-\r'Стандартная база данных поиска' - определяет базу данных поиска:\n
-    - 'https://pubs.acs.org/'\n
-    - 'https://www.sciencedirect.com/'\n
-сейчас - {1}\n
-\n"""
-STANDART_SETTINGS = {'Максимальное число результатов': 50,
-                     'Стандартная база данных поиска':search_sources[0]}
+IDLE, SEARCH_RESULTLS, SENDING_CAPCHA, TYPING_REPLY = range(4)
 
 with open('api.json', 'r', encoding='UTF-8') as local_file:
     data = json.loads(local_file.read())
@@ -73,16 +63,12 @@ SEARCH_KEYBOARD = [['Искать!', 'Мои настройки'],
 #                      ['Искать!'],
 #                      ['Что-то другое...', 'Назад']]
 
-SETTINGS_KEYBOARD = [['Максимальное число результатов', 'Стандартная база данных поиска'], 
-                     ['Назад']]
-
 RESULTS_KEYBOARD = [['Следующий результат', 'Скачать', 
                      'Цитировать (BibTex)', 'Предыдущий результат'], 
                     ['Назад']]
 
 SEARCH_MARKUP = ReplyKeyboardMarkup(SEARCH_KEYBOARD, one_time_keyboard=True)
 # TAGS_MARKUP = ReplyKeyboardMarkup(ADD_TAGS_KEYBOARD, one_time_keyboard=True)
-SETTINGS_MARKUP = ReplyKeyboardMarkup(SETTINGS_KEYBOARD, one_time_keyboard=True)
 RESULTS_MARKUP = ReplyKeyboardMarkup(RESULTS_KEYBOARD, one_time_keyboard=True)
 db = database_class.DataBase(database_connection_settings)
 
@@ -315,8 +301,6 @@ def received_search_results(bot, update, context=None, user_data=None):
                              user_request), reply_markup=SEARCH_MARKUP)
         return IDLE
     else:
-        if not user_data.get('settings'):
-            user_data['settings'] = STANDART_SETTINGS
         if text == 'Следующий результат':
             if user_data['pagination'] >= len(user_data['results'])-1:
                 if user_data.get('Запрос'):
@@ -327,10 +311,10 @@ def received_search_results(bot, update, context=None, user_data=None):
                     # Some search actions
                     parser = BotParser(search_settings, db)
                     #TODO: Нужно добавить в поиск "перелистывание страниц", а пока вызывается старая функция parse
-                    results = parser.parse(user_data['Запрос'], 
-                                           update.message.chat_id, 
-                                           max_articles=user_data['settings'].get(
-                                               'Максимальное число результатов', 50))
+                    results = parser.parse(user_data['Запрос'],
+                                           update.message.chat_id,
+                                           50
+                                          )
                     user_data['results'] += results
             user_data['pagination'] += 1
             result = user_data['results'][user_data['pagination']]
@@ -376,14 +360,15 @@ def received_search_results(bot, update, context=None, user_data=None):
                 return SEARCH_RESULTLS
         elif text == 'Цитировать (BibTex)':
             key_words, title, authors, doi, annotation, download_link = user_data['results'][user_data['pagination']]
-            try:
-                cite_it(bot, update.message.chat_id, doi)
-                return SEARCH_RESULTLS
-            except telegram.TelegramError:
-                bot.send_message(chat_id=update.message.chat_id,
-                                 text="Что-то пошло не так. Я не смог отправить вам этот документ.")
-                print(traceback.format_exc())
-                return SEARCH_RESULTLS
+            return cite_it(bot, update.message.chat_id, doi)
+            # try:
+            #     cite_it(bot, update.message.chat_id, doi)
+            #     return SEARCH_RESULTLS
+            # except telegram.TelegramError:
+            #     bot.send_message(chat_id=update.message.chat_id,
+            #                      text="Что-то пошло не так. Я не смог отправить вам этот документ.")
+            #     print(traceback.format_exc())
+            #     return SEARCH_RESULTLS
         elif text == 'Предыдущий результат':
             if not user_data['pagination'] == 0:
                 user_data['pagination'] -= 1
@@ -411,8 +396,6 @@ def received_search_results(bot, update, context=None, user_data=None):
 
 def idle_callback(bot, update, context=None, user_data=None):
     """Commits search type"""
-    if not user_data.get('settings'):
-        user_data['settings'] = STANDART_SETTINGS
     # user_data = context.user_data
     current_action = update.message.text
     if current_action == 'Искать!':
@@ -427,8 +410,8 @@ def idle_callback(bot, update, context=None, user_data=None):
             parser = BotParser(search_settings, db)
             results = parser.parse(user_data['Запрос'],
                                    update.message.chat_id,
-                                   max_articles=user_data['settings'].get(
-                                       'Максимальное число результатов', 50))
+                                   50
+                                  )
             user_data['results'] = results
             user_data['pagination'] = 0
             key_words, title, authors, doi, annotation, download_link = user_data['results'][user_data['pagination']]
@@ -459,17 +442,6 @@ def idle_callback(bot, update, context=None, user_data=None):
                                   " Отправьте ваш запрос в ответном сообщении.", 
                              reply_markup=SEARCH_MARKUP)
             return IDLE
-    elif current_action == 'Мои настройки':
-        # if not user_data and context:
-        #     user_data = context.user_data
-        bot.send_message(chat_id=update.message.chat_id,
-                         text="Загружаю настройки: \n {}".format(
-                             SETTINGS_STRINGS.format(user_data['settings'].get(
-                                 'Максимальное число результатов'),
-                                                     user_data['settings'].get(
-                                                         'Стандартная база данных поиска')
-                                                    )),
-                         reply_markup=SETTINGS_MARKUP)
         # Settings
         return SETTING_CHOOSING
     else:
@@ -477,63 +449,6 @@ def idle_callback(bot, update, context=None, user_data=None):
                          text="Окей, чтобы осуществить поиск нажмите 'Искать!'",
                          reply_markup=SEARCH_MARKUP)
         user_data['Запрос'] = update.message.text
-
-
-def settings_callback(bot, update, context=None, user_data=None):
-    """Changes settings"""
-    text = update.message.text
-    if user_data:
-        user_data['choice'] = text
-    else:
-        context.user_data['choice'] = text
-    if text == 'Назад':
-        bot.send_message(chat_id=update.message.chat_id,
-                         text='Завершаем смену настроек', reply_markup=SEARCH_MARKUP,
-                         disable_web_page_preview=True)
-        return IDLE
-    else:
-        bot.send_message(chat_id=update.message.chat_id,
-                         text='Назовёте {}? '
-                              'Просто напишите значение мне в ответ'.format(text.lower()),
-                         reply_markup=SETTINGS_MARKUP, 
-                         disable_web_page_preview=True)
-        return SETTING_CHANGING
-
-def received_setting_value(bot, update, context=None, user_data=None):
-    """Shows what context has been formed"""
-    # user_data = context.user_data
-    text = update.message.text
-    category = user_data['choice']
-    if not user_data.get('settings'):
-        user_data['settings'] = STANDART_SETTINGS
-    if category == 'Максимальное число результатов':
-        try:
-            user_data['settings'][category] = int(text)
-        except ValueError:
-            bot.send_message(chat_id=update.message.chat_id,
-                             text="Нельзя присваивать в 'Максимальное число результатов' НЕ ЧИСЛО.",
-                             reply_markup=SETTINGS_MARKUP, 
-                             disable_web_page_preview=True)
-    elif category == 'Стандартная база данных поиска':
-        if category not in search_sources:
-            bot.send_message(chat_id=update.message.chat_id,
-                             text="Я пока не умею работать "
-                                  "с ресурсом '{0}'."
-                                  " Выберите один из следующих: {1}".format(text,
-                                                                            str(search_settings)), 
-                             disable_web_page_preview=True)
-
-    del user_data['choice']
-
-    bot.send_message(chat_id=update.message.chat_id,
-                     text="Окей! Теперь ваши настройки следующие:"
-                          " {} "
-                          "Вы можете упомянуть что-то еще или "
-                          "сменить тему разговора нажав кнопку 'Назад'.".format(
-                              facts_to_str(user_data['settings'])), reply_markup=SETTINGS_MARKUP, 
-                     disable_web_page_preview=True)
-
-    return SETTING_CHOOSING
 
 def done(bot, update, context=None, user_data=None):
     """Ends conversation."""
@@ -591,14 +506,6 @@ def main():
                                            back_to_idle,
                                            pass_user_data=True),
                              ],
-            SETTING_CHOOSING: [RegexHandler('^(Максимальное число результатов|Стандартная база данных поиска|Назад)$',
-                                            settings_callback,
-                                            pass_user_data=True),
-                              ],
-            SETTING_CHANGING: [MessageHandler(Filters.text,
-                                              received_setting_value,
-                                              pass_user_data=True),
-                              ],
             TYPING_REPLY: [MessageHandler(Filters.text,
                                           parsing_capcha,
                                           pass_user_data=True)
