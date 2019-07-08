@@ -12,8 +12,9 @@ import hashlib
 
 class BotParser:
 
-    def __init__(self, settings):
+    def __init__(self, settings, database):
         self.parser_settings = settings
+        self.database = database
 
     def _make_url(self, url, query_string, max_articles):
 
@@ -29,7 +30,7 @@ class BotParser:
 
             return query + '&startPage=0&pageSize={}'.format(max_articles)
 
-    def _get_results(self, source, soup, database, key_words, doi_from_db):
+    def _get_results(self, source, soup, database, key_words, doi_from_db, connection):
         """Данная функция обрабатывает статьи"""
         authors = []
         stacked_article = list()
@@ -77,7 +78,6 @@ class BotParser:
                         try:
                             sci_hash = hashlib.md5(bytes(doi,encoding='utf-8')).hexdigest()
                             res_hub = 'https://dacemirror.sci-hub.se/journal-article/' + sci_hash + '/' + main_author + public_date + '.pdf?download=true'
-                            #print(res_hub)
                         except:
                             "Oops, captcha!"
 
@@ -114,9 +114,6 @@ class BotParser:
         hub = BeautifulSoup(response_text, 'lxml')
         image = hub.find('img', {'id': 'captcha'})['src']
         id = hub.find('input', {'name': 'id'})['value']
-        print(artcle_url)
-        print(artcle_url[7:].split('/'))
-        print(id)
         return artcle_url[7:].split('/')[1] + image, id
 
     @staticmethod
@@ -156,10 +153,7 @@ class BotParser:
         d2 = {str(results[i:i + 1, 3][0]): results[i:i + 1, :] for i in range(len(results))}
         d1 = {str(stored[i:i + 1, 3][0]): stored[i:i + 1, :5] for i in range(len(stored))}
         value = {k: d2[k] for k in set(d2) - set(d1)}
-        #print(value.values())
-        #print(len(value.values()))
         return self._stack_and_reshape(value.values(), (len(value.values()), 6))
-
 
     def _prepare_keywords(self, keywords):
         keywords = keywords.lower()
@@ -167,7 +161,6 @@ class BotParser:
         keywords = re.sub(' ', ',', keywords)
         keywords = keywords.split(',')
         return sorted(keywords)
-
 
     def _check_keywords(self, keywords):
         checker = SpellChecker()
@@ -183,8 +176,7 @@ class BotParser:
         database.insert_to_stored(connection, key_words, title, authors, doi, annotation, chat_id, scihub_url)
         database.close_connection(connection)
 
-
-    def parse(self, keywords, chat_id, max_articles = search_settings['max_articles']):
+    def parse(self, keywords, chat_id, max_articles):
 
         query_string = self._prepare_keywords(keywords)
         checked_keywords = self._check_keywords(query_string)
@@ -198,95 +190,40 @@ class BotParser:
             return 0
             #TODO need to write correct return
 
-        session = requests.Session()
+        connection = self.database.make_connection()
+        keywords = self.database.get_keywords(connection, query_string)
+        doi_from_db = self.database.get_doi(connection)
 
-        # Объявляем объект базы данных
-        database = DataBase(database_connection_settings)
+        with requests.Session() as session:
+            if query_string in keywords:
+                all_results = self.database.select_by_value(connection, 'search_results', 'key_words', query_string)
+                stored_results = self.database.select_by_value(connection, 'users_stored_articles', 'key_words',
+                                                          query_string, ('chat_id', chat_id))
+                results = self._prepare_results(all_results, stored_results)
+                self.database.close_connection(connection)
+                return results
+            else:
+                for source in self.parser_settings['sources']:
+                    query = self._make_url(source, query_string, max_articles=max_articles)
+                    response = session.get(query)
+                    soup = BeautifulSoup(response.text, 'lxml')
 
-        # Создаём соединение
-        global connection
-        connection = database.make_connection()
+                    # получаем спиоск имеющихся статей (если есть) и заносим в бд уникальные
+                    results = self._get_results(source, soup, self.database, query_string, doi_from_db, connection)
+                    all_results = self.database.select_by_value(connection, 'search_results', 'key_words', query_string)
+                    stored_results = self.database.select_by_value(connection, 'users_stored_articles', 'chat_id',
+                                                              chat_id)
+                    if results is not None:
+                        indexes = []
+                        for i in range(len(results)):
+                            if results[i][3] in stored_results[:, 3]:
+                                indexes.append(i)
+                        prepared_results = np.vstack((all_results, results[indexes]))
+                    else:
+                        prepared_results = all_results
 
-        # Получаем список ключевых слов из бд
-        keywords = database.get_keywords(connection, query_string)
-
-        # Получаем список doi из бд
-        doi_from_db = database.get_doi(connection)
-
-        #пример chat_id
-        #chat_id = '12345'
-
-        if query_string in keywords:
-            start_time = time.time()
-            all_results = database.select_by_value(connection, 'search_results', 'key_words', query_string)
-            stored_results = database.select_by_value(connection, 'users_stored_articles', 'key_words', query_string, ('chat_id', chat_id))
-            results = self._prepare_results(all_results, stored_results)
-            print(results)
-            database.close_connection(connection)
-            print("--- %s seconds ---" % (time.time() - start_time))
-            return results
-
-        else:
-            start_time = time.time()
-
-            for source in self.parser_settings['sources']:
-                query = self._make_url(source, query_string, max_articles=25)
-                response = session.get(query)
-
-                soup = BeautifulSoup(response.text, 'lxml')
-
-                #получаем спиоск имеющихся статей (если есть) и заносим в бд уникальные
-                results = self._get_results(source, soup, database, query_string, doi_from_db)
-                all_results = database.select_by_value(connection, 'search_results', 'key_words', query_string)
-                stored_results = database.select_by_value(connection, 'users_stored_articles', 'chat_id',
-                                                          chat_id)
-                if results is not None:
-                    indexes = []
-                    for i in range(len(results)):
-                        print(stored_results[:, 5])
-                        #print(results)
-                        print(results[i])
-                        if results[i][3] in stored_results[:, 3]:
-                            indexes.append(i)
-                    prepared_results = np.vstack((all_results,results[indexes]))
-                else:
-                    prepared_results = all_results
-                # key_words, title, authors, doi, annotation = prepared_results[i:i+1, 0, :]
-                # database.insert_to_stored(connection, key_words, title, authors, doi, annotation, chat_id)
-            print(prepared_results)
-            database.close_connection(connection)
-                # print('ready')
-            #print(start_time - time.time())
-            # print("--- %s seconds ---" % (time.time() - start_time))
-            return prepared_results
-
-
-    # def test(self, results):
-    #     database = DataBase(database_connection_settings)
-    #     connection = database.make_connection()
-
-    #     for i in range(len(results)):
-    #         print('Название статьи: ', results[i:i+1, 1][0])
-    #         print('Авторы: ', results[i:i+1, 2][0])
-    #         print('DOI: ', results[i:i+1, 3][0])
-    #         print()
-    #         print('Аннотация (En):', results[i:i+1, 4][0])
-
-    #         print()
-    #         ans = input("Next? ")
-    #         print()
-    #         if ans == 'y':
-    #             database.insert_to_stored(connection, query, results[i:i+1, 1][0], results[i:i+1, 2][0], results[i:i+1, 3][0], results[i:i+1, 4][0], '12345')
-    #             continue
-    #         elif ans == 'n':
-    #             database.close_connection(connection)
-    #             break
+                self.database.close_connection()
+                return prepared_results
 
 
 
-# if __name__ == '__main__':
-#     parser = BotParser(search_settings)
-#     for i in range(2):
-#         query = input('введите строку запроса: ')
-#         results = parser.parse(query)
-#         parser.test(results)

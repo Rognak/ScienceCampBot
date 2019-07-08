@@ -30,6 +30,7 @@ import doi2bib
 from AppSettings import *
 # from BusinessLogic import EntryPoint
 from BusinessLogic.BotEntry import BotParser
+from BusinessLogic.database_class import DataBase
 
 # Enable logging
 logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
@@ -83,6 +84,7 @@ SEARCH_MARKUP = ReplyKeyboardMarkup(SEARCH_KEYBOARD, one_time_keyboard=True)
 # TAGS_MARKUP = ReplyKeyboardMarkup(ADD_TAGS_KEYBOARD, one_time_keyboard=True)
 SETTINGS_MARKUP = ReplyKeyboardMarkup(SETTINGS_KEYBOARD, one_time_keyboard=True)
 RESULTS_MARKUP = ReplyKeyboardMarkup(RESULTS_KEYBOARD, one_time_keyboard=True)
+db = database_class.DataBase(database_connection_settings)
 
 def start(bot, update):
     """Starts conversation"""
@@ -91,7 +93,6 @@ def start(bot, update):
                           " Просто введите ваш запрос и нажмите 'Искать!' на клавиатуре",
                      reply_markup=SEARCH_MARKUP)
 
-    db = database_class.DataBase(database_connection_settings)
     connection = db.make_connection()
     db.register_user(connection, update.message.chat_id, update.message.from_user['username'])
     db.close_connection(connection)
@@ -145,7 +146,7 @@ def cite_it(bot, chat_id, doi):
                          )
         return SEARCH_RESULTLS
 
-@BotParser.check_url
+#@BotParser.check_url
 def download_it(bot, update, article_url, doi, filename, context=None, user_data=None):
     """downloads a file via url and writes it to the local storage with given name"""
     session = requests.Session()
@@ -160,6 +161,7 @@ def download_it(bot, update, article_url, doi, filename, context=None, user_data
             downloaded_file.write(response.content)
         bot.send_document(chat_id=update.message.chat_id,
                           document=open(os.path.join('downloads', filename+'.pdf'), 'rb'),
+                          timeout=1000
                          )
         return SEARCH_RESULTLS
     else:
@@ -170,6 +172,7 @@ def download_it(bot, update, article_url, doi, filename, context=None, user_data
         bot.send_photo(chat_id=update.message.chat_id,
                        photo=image_url,
                        caption="Решите следующую капчу и напишите ответ в сообщении:",
+                       timeout=1000
                       )
         # reply = update.message.text
         user_data['capcha-id'] = id
@@ -198,12 +201,24 @@ def parsing_capcha(bot, update, context=None, user_data=None):
         print('jojojojojo')
         with open(os.path.join('downloads', filename+'.pdf'), 'wb+') as downloaded_file:
             downloaded_file.write(response.content)
+        print('Я скачал документ и назвал его %s' %(filename))
         bot.send_document(chat_id=update.message.chat_id,
                         #   caption="А вот и файл:",
                           document=open(os.path.join('downloads', filename+'.pdf'), 'rb'),
+                          timeout=1000
                          )
         return SEARCH_RESULTLS
     else:
+        if response.status_code == 404:
+             print('getting 404')
+
+             connection = db.make_connection()
+             new_article_url = BotParser._parse_scihub(doi)
+             DataBase.update_url(connection, new_article_url)
+             db.close_connection(connection)
+            #TODO Здесь происходит обновление url в бд, необходимо передать doi и чтобы в случае 404 он сделал поиск по новой ссылке
+
+
         if user_data['count-tries'] < 3:
             print("gfgjgfcffghjgdsdfghgfdgh")
             func_resp = BotParser.parse_captcha(article_url, response.text)
@@ -212,6 +227,7 @@ def parsing_capcha(bot, update, context=None, user_data=None):
             bot.send_photo(chat_id=update.message.chat_id,
                            photo=image_url,
                            caption="Решите следующую капчу и напишите ответ в сообщении:",
+                           timeout=1000
                         #    reply_markup=telegram.ForceReply()
                           )
 
@@ -305,7 +321,7 @@ def received_search_results(bot, update, context=None, user_data=None):
                                     reply_markup=RESULTS_MARKUP)
                     bot.send_chat_action(chat_id=update.message.chat_id, action=telegram.ChatAction.TYPING)
                     # Some search actions
-                    parser = BotParser(search_settings)
+                    parser = BotParser(search_settings, db)
                     #TODO: Нужно добавить в поиск "перелистывание страниц", а пока вызывается старая функция parse
                     results = parser.parse(user_data['Запрос'], 
                                            update.message.chat_id, 
@@ -323,7 +339,7 @@ def received_search_results(bot, update, context=None, user_data=None):
                             #  parse_mode="MARKDOWN"
                             )
             bot.send_chat_action(chat_id=update.message.chat_id, action=telegram.ChatAction.TYPING)
-            parser = BotParser(search_settings)
+            parser = BotParser(search_settings, db)
             parser.register_watched(key_words, title,
                                     authors, doi, annotation, update.message.chat_id, download_link)
             bot.send_chat_action(chat_id=update.message.chat_id, action=telegram.ChatAction.TYPING)
@@ -376,7 +392,7 @@ def received_search_results(bot, update, context=None, user_data=None):
                                 #  parse_mode="MARKDOWN"
                                 )
                 key_words, title, authors, doi, annotation, scihub_url = render_message(key_words, title, authors, doi, annotation, download_link)[-1]
-                parser = BotParser(search_settings)
+                parser = BotParser(search_settings, db)
                 parser.register_watched(key_words, title,
                                 authors, doi, annotation, update.message.chat_id, scihub_url)
                 bot.send_message(chat_id=update.message.chat_id,
@@ -404,7 +420,7 @@ def idle_callback(bot, update, context=None, user_data=None):
                              reply_markup=RESULTS_MARKUP)
             bot.send_chat_action(chat_id=update.message.chat_id, action=telegram.ChatAction.TYPING)
             # Some search actions
-            parser = BotParser(search_settings)
+            parser = BotParser(search_settings, db)
             results = parser.parse(user_data['Запрос'],
                                    update.message.chat_id,
                                    max_articles=user_data['settings'].get(
@@ -414,7 +430,8 @@ def idle_callback(bot, update, context=None, user_data=None):
             key_words, title, authors, doi, annotation, download_link = user_data['results'][user_data['pagination']]
             bot.send_message(chat_id=update.message.chat_id,
                              text="Может вам подойдет это:\n",
-                             reply_markup=RESULTS_MARKUP)
+                             reply_markup=RESULTS_MARKUP,
+                             )
             bot.send_message(chat_id=update.message.chat_id,
                              text=render_message(key_words, title, authors, 
                                                  doi, annotation, download_link)[0],
