@@ -18,6 +18,7 @@ import traceback
 from googletrans import Translator
 from telegram import ParseMode
 from telegram import ReplyKeyboardMarkup
+from telegram.ext.dispatcher import run_async
 from telegram.ext import (Updater, CommandHandler, MessageHandler, Filters, RegexHandler, CallbackQueryHandler,
                           ConversationHandler)
 import hashlib
@@ -66,6 +67,7 @@ SEARCH_MARKUP = ReplyKeyboardMarkup(SEARCH_KEYBOARD, one_time_keyboard=True)
 RESULTS_MARKUP = ReplyKeyboardMarkup(RESULTS_KEYBOARD, one_time_keyboard=True)
 db = database_class.DataBase(database_connection_settings)
 
+@run_async
 def start(bot, update):
     """Starts conversation"""
     bot.send_message(chat_id=update.message.chat_id,
@@ -79,6 +81,7 @@ def start(bot, update):
 
     return IDLE
 
+@run_async
 def facts_to_str(user_data):
     """Converts facts into str"""
     facts = list()
@@ -88,6 +91,7 @@ def facts_to_str(user_data):
 
     return "\n".join(facts).join(['\n', '\n'])
 
+@run_async
 def cite_it(bot, chat_id, doi):
     """Returns citation for given DOI"""
     # headers = {"content-type":"application/x-bibtex"}
@@ -119,6 +123,7 @@ def cite_it(bot, chat_id, doi):
         return SEARCH_RESULTLS
 
 #@BotParser.check_url
+@run_async
 def download_it(bot, update, article_url, doi, filename, context=None, user_data=None):
     """downloads a file via url and writes it to the local storage with given name"""
     session = requests.Session()
@@ -154,6 +159,7 @@ def download_it(bot, update, article_url, doi, filename, context=None, user_data
         #user_data['capcha-response'] = response
         return TYPING_REPLY
 
+@run_async
 def parsing_capcha(bot, update, context=None, user_data=None):
     """Handles capcha input"""
     response = user_data['capcha-response']
@@ -221,6 +227,7 @@ def parsing_capcha(bot, update, context=None, user_data=None):
             user_data['count-tries'] = 0
             return SEARCH_RESULTLS
 
+@run_async
 def results_to_str(search_results):
     """Converts search results into str"""
     html_pages = []
@@ -252,6 +259,7 @@ def results_to_str(search_results):
                                      doi, annotation, download_link]])
     return html_pages
 
+@run_async
 def render_message(key_words, title, authors, doi, annotation, download_link):
     """Renders metadata into telegram message"""
     with open('templates/response_template.md', 'r', encoding='UTF-8') as ifile:
@@ -267,6 +275,7 @@ def render_message(key_words, title, authors, doi, annotation, download_link):
         doi, [key_words, title, authors, \
             doi, annotation, download_link]
 
+@run_async
 def back_to_idle(bot, update, context=None, user_data=None):
     """Returns to idle state"""
     bot.send_message(chat_id=update.message.chat_id,
@@ -274,6 +283,7 @@ def back_to_idle(bot, update, context=None, user_data=None):
                      reply_markup=SEARCH_MARKUP)
     return IDLE
 
+@run_async
 def received_search_results(bot, update, context=None, user_data=None):
     """Shows results of the search one by one"""
     text = update.message.text
@@ -390,6 +400,7 @@ def received_search_results(bot, update, context=None, user_data=None):
                                  text="Это первый из найденных результатов.")
         return SEARCH_RESULTLS
 
+@run_async
 def idle_callback(bot, update, context=None, user_data=None):
     """Commits search type"""
     # user_data = context.user_data
@@ -453,6 +464,7 @@ def idle_callback(bot, update, context=None, user_data=None):
                          reply_markup=SEARCH_MARKUP)
         user_data['Запрос'] = update.message.text
 
+@run_async
 def done(bot, update, context=None, user_data=None):
     """Ends conversation."""
     # user_data = context.user_data
@@ -465,6 +477,7 @@ def done(bot, update, context=None, user_data=None):
     user_data.clear()
     return ConversationHandler.END
 
+@run_async
 def error(bot, update, context=None, user_data=None):
     """Log Errors caused by Updates."""
     LOGGER.warning('Update "%s" caused error "%s"', update, error)
@@ -491,7 +504,7 @@ def main():
     #         'password': 'zGJXDdm7',
     #     }
     # }
-    updater = Updater(__TOCKEN__,) #request_kwargs=REQUEST_KWARGS)
+    updater = Updater(__TOCKEN__, workers=-1) #request_kwargs=REQUEST_KWARGS)
     # Get the dispatcher to register handlers
     bot_dispatcher = updater.dispatcher
 
