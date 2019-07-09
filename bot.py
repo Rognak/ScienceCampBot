@@ -61,7 +61,7 @@ SEARCH_KEYBOARD = [['Искать!'],
                   ]
 
 RESULTS_KEYBOARD = [['Следующий результат', 'Скачать',
-                     'Цитировать (BibTex)', 'Предыдущий результат'],
+                     'Цитировать', 'Предыдущий результат'],
                     ['Назад']]
 
 SEARCH_MARKUP = ReplyKeyboardMarkup(SEARCH_KEYBOARD, one_time_keyboard=True)
@@ -357,10 +357,10 @@ def received_search_results(bot, update, context=None, user_data=None):
                                 text="Что-то пошло не так. Я не смог отправить вам этот документ.")
                 print(traceback.format_exc())
                 return SEARCH_RESULTLS
-        elif text == 'Цитировать (BibTex)':
+        elif text == 'Цитировать':
             print("Я тут")
             key_words, title, authors, doi, annotation, download_link = user_data['results'][user_data['pagination']]
-            return awaitcite_it(bot, update.message.chat_id, doi)
+            return cite_it(bot, update.message.chat_id, doi)
             # try:
             #     cite_it(bot, update.message.chat_id, doi)
             #     return SEARCH_RESULTLS
@@ -508,7 +508,7 @@ def main():
                                    idle_callback,
                                    pass_user_data=True
                                   )],
-            SEARCH_RESULTLS: [RegexHandler('^(Следующий результат|Скачать|Цитировать (BibTex)|Предыдущий результат)$',
+            SEARCH_RESULTLS: [RegexHandler('^(Следующий результат|Скачать|Цитировать|Предыдущий результат)$',
                                            received_search_results,
                                            pass_user_data=True),
                               RegexHandler('^Назад$',
