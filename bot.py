@@ -60,7 +60,7 @@ SEARCH_KEYBOARD = [['Искать!'],
                   ]
 
 RESULTS_KEYBOARD = [['Следующий результат', 'Скачать',
-                     'Цитировать (BibTex)', 'Предыдущий результат'], 
+                     'Цитировать (BibTex)', 'Предыдущий результат'],
                     ['Назад']]
 
 SEARCH_MARKUP = ReplyKeyboardMarkup(SEARCH_KEYBOARD, one_time_keyboard=True)
@@ -89,7 +89,6 @@ def facts_to_str(user_data):
 
     return "\n".join(facts).join(['\n', '\n'])
 
-@run_async
 def cite_it(bot, chat_id, doi):
     """Returns citation for given DOI"""
     # headers = {"content-type":"application/x-bibtex"}
@@ -121,7 +120,6 @@ def cite_it(bot, chat_id, doi):
         return SEARCH_RESULTLS
 
 #@BotParser.check_url
-@run_async
 def download_it(bot, update, article_url, doi, filename, context=None, user_data=None):
     """downloads a file via url and writes it to the local storage with given name"""
     session = requests.Session()
@@ -157,7 +155,6 @@ def download_it(bot, update, article_url, doi, filename, context=None, user_data
         #user_data['capcha-response'] = response
         return TYPING_REPLY
 
-@run_async
 def parsing_capcha(bot, update, context=None, user_data=None):
     """Handles capcha input"""
     response = user_data['capcha-response']
@@ -192,7 +189,7 @@ def parsing_capcha(bot, update, context=None, user_data=None):
             doi = user_data['doi']
             connection = db.make_connection()
             new_article_url = BotParser._parse_scihub(doi)
-            DataBase.update_url(connection, new_article_url)
+            DataBase.update_url(connection, article_url, new_article_url)
             db.close_connection(connection)
 
             res = download_it(bot, update, new_article_url,
@@ -278,8 +275,8 @@ def back_to_idle(bot, update, context=None, user_data=None):
                      reply_markup=SEARCH_MARKUP)
     return IDLE
 
-@run_async
 def received_search_results(bot, update, context=None, user_data=None):
+    print('Ага!')
     """Shows results of the search one by one"""
     text = update.message.text
     if len(user_data['results']) == 0:
@@ -360,6 +357,7 @@ def received_search_results(bot, update, context=None, user_data=None):
                 print(traceback.format_exc())
                 return SEARCH_RESULTLS
         elif text == 'Цитировать (BibTex)':
+            print("Я тут")
             key_words, title, authors, doi, annotation, download_link = user_data['results'][user_data['pagination']]
             return cite_it(bot, update.message.chat_id, doi)
             # try:
@@ -395,7 +393,6 @@ def received_search_results(bot, update, context=None, user_data=None):
                                  text="Это первый из найденных результатов.")
         return SEARCH_RESULTLS
 
-@run_async
 def idle_callback(bot, update, context=None, user_data=None):
     """Commits search type"""
     # user_data = context.user_data
@@ -497,7 +494,7 @@ def main():
     #         'password': 'zGJXDdm7',
     #     }
     # }
-    updater = Updater(__TOCKEN__, workers=-1) #request_kwargs=REQUEST_KWARGS)
+    updater = Updater(__TOCKEN__) #request_kwargs=REQUEST_KWARGS)
     # Get the dispatcher to register handlers
     bot_dispatcher = updater.dispatcher
 

@@ -100,10 +100,10 @@ class DataBase:
 
 
     @staticmethod
-    def update_url(connection, new_url):
+    def update_url(connection, old_url, new_url):
         cursor = connection.cursor()
 
-        cursor.execute("""UPDATE search_results SET scihub_url = '%s' WHERE scihub_url = %s""" % (new_url))
+        cursor.execute("""UPDATE search_results SET scihub_url = '%s' WHERE scihub_url = %s""" % (new_url, old_url))
 
         connection.commit()
         cursor.close()
