@@ -113,7 +113,7 @@ def cite_it(bot, chat_id, doi):
                          text="Цитирование по CrossRef:"
                         )
         filename = doi.replace('/', '-')
-        with open(os.path.join('downloads', filename+'.bib'), 'wb+') as downloaded_file:
+        with open(os.path.join('downloads', filename+'.bib'), 'w+') as downloaded_file:
             downloaded_file.write(meta_bib)
         bot.send_document(chat_id=chat_id,
                           document=open(os.path.join('downloads', filename+'.bib'), 'rb'),
