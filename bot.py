@@ -55,20 +55,14 @@ if not os.path.exists('downloads'):
 
 TRANSLATOR = Translator()
 
-SEARCH_KEYBOARD = [['Искать!', 'Мои настройки'],
+SEARCH_KEYBOARD = [['Искать!'],
                   ]
 
-# ADD_TAGS_KEYBOARD = [['Автор', 'Год издания', 'Название'],
-#                      ['Аннотация', 'Ключевые слова'],
-#                      ['Искать!'],
-#                      ['Что-то другое...', 'Назад']]
-
-RESULTS_KEYBOARD = [['Следующий результат', 'Скачать', 
+RESULTS_KEYBOARD = [['Следующий результат', 'Скачать',
                      'Цитировать (BibTex)', 'Предыдущий результат'], 
                     ['Назад']]
 
 SEARCH_MARKUP = ReplyKeyboardMarkup(SEARCH_KEYBOARD, one_time_keyboard=True)
-# TAGS_MARKUP = ReplyKeyboardMarkup(ADD_TAGS_KEYBOARD, one_time_keyboard=True)
 RESULTS_MARKUP = ReplyKeyboardMarkup(RESULTS_KEYBOARD, one_time_keyboard=True)
 db = database_class.DataBase(database_connection_settings)
 
@@ -84,14 +78,6 @@ def start(bot, update):
     db.close_connection(connection)
 
     return IDLE
-
-# def start(bot, update, context):
-#     """Starts conversation"""
-#     update.message.reply_text("Привет! Я - ScienceCamp Бот и я помогу вам в ваших исследованиях."
-#                               " Давай начнем! Какой вид поиска вы хотите произвести:",
-#                               reply_markup=SEARCH_MARKUP)
-
-#     return CHOOSING
 
 def facts_to_str(user_data):
     """Converts facts into str"""
@@ -311,9 +297,10 @@ def received_search_results(bot, update, context=None, user_data=None):
                     # Some search actions
                     parser = BotParser(search_settings, db)
                     #TODO: Нужно добавить в поиск "перелистывание страниц", а пока вызывается старая функция parse
+                    user_data['start-page'] += 1
                     results = parser.parse(user_data['Запрос'],
                                            update.message.chat_id,
-                                           start_page=0,
+                                           start_page=user_data['start-page'],
                                            max_articles=5
                                           )
                     user_data['results'] += results
@@ -407,11 +394,12 @@ def idle_callback(bot, update, context=None, user_data=None):
                              text="Ищу '{}'".format(user_data['Запрос']),
                              reply_markup=RESULTS_MARKUP)
             bot.send_chat_action(chat_id=update.message.chat_id, action=telegram.ChatAction.TYPING)
+            user_data['start-page'] = 0
             # Some search actions
             parser = BotParser(search_settings, db)
             results = parser.parse(user_data['Запрос'],
                                    update.message.chat_id,
-                                   0,
+                                   user_data['start-page'],
                                    5
                                   )
             user_data['results'] = results
@@ -444,8 +432,6 @@ def idle_callback(bot, update, context=None, user_data=None):
                                   " Отправьте ваш запрос в ответном сообщении.", 
                              reply_markup=SEARCH_MARKUP)
             return IDLE
-        # Settings
-        return SETTING_CHOOSING
     else:
         bot.send_message(chat_id=update.message.chat_id,
                          text="Окей, чтобы осуществить поиск нажмите 'Искать!'",
