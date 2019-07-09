@@ -392,7 +392,9 @@ async def received_search_results(bot, update, context=None, user_data=None):
             else:
                 bot.send_message(chat_id=update.message.chat_id,
                                  text="Это первый из найденных результатов.")
-        return SEARCH_RESULTLS
+        else:
+            print(text)
+            return SEARCH_RESULTLS
 
 async def idle_callback(bot, update, context=None, user_data=None):
     """Commits search type"""
