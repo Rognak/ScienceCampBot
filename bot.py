@@ -67,7 +67,6 @@ SEARCH_MARKUP = ReplyKeyboardMarkup(SEARCH_KEYBOARD, one_time_keyboard=True)
 RESULTS_MARKUP = ReplyKeyboardMarkup(RESULTS_KEYBOARD, one_time_keyboard=True)
 db = database_class.DataBase(database_connection_settings)
 
-@run_async
 def start(bot, update):
     """Starts conversation"""
     bot.send_message(chat_id=update.message.chat_id,
@@ -81,7 +80,6 @@ def start(bot, update):
 
     return IDLE
 
-@run_async
 def facts_to_str(user_data):
     """Converts facts into str"""
     facts = list()
@@ -227,7 +225,6 @@ def parsing_capcha(bot, update, context=None, user_data=None):
             user_data['count-tries'] = 0
             return SEARCH_RESULTLS
 
-@run_async
 def results_to_str(search_results):
     """Converts search results into str"""
     html_pages = []
@@ -259,7 +256,6 @@ def results_to_str(search_results):
                                      doi, annotation, download_link]])
     return html_pages
 
-@run_async
 def render_message(key_words, title, authors, doi, annotation, download_link):
     """Renders metadata into telegram message"""
     with open('templates/response_template.md', 'r', encoding='UTF-8') as ifile:
@@ -275,7 +271,6 @@ def render_message(key_words, title, authors, doi, annotation, download_link):
         doi, [key_words, title, authors, \
             doi, annotation, download_link]
 
-@run_async
 def back_to_idle(bot, update, context=None, user_data=None):
     """Returns to idle state"""
     bot.send_message(chat_id=update.message.chat_id,
@@ -464,7 +459,6 @@ def idle_callback(bot, update, context=None, user_data=None):
                          reply_markup=SEARCH_MARKUP)
         user_data['Запрос'] = update.message.text
 
-@run_async
 def done(bot, update, context=None, user_data=None):
     """Ends conversation."""
     # user_data = context.user_data
@@ -477,7 +471,6 @@ def done(bot, update, context=None, user_data=None):
     user_data.clear()
     return ConversationHandler.END
 
-@run_async
 def error(bot, update, context=None, user_data=None):
     """Log Errors caused by Updates."""
     LOGGER.warning('Update "%s" caused error "%s"', update, error)
