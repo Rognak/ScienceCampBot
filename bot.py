@@ -15,6 +15,7 @@ import json
 import requests
 import telegram
 import traceback
+import asyncio
 from googletrans import Translator
 from telegram import ParseMode
 from telegram import ReplyKeyboardMarkup
@@ -67,7 +68,7 @@ SEARCH_MARKUP = ReplyKeyboardMarkup(SEARCH_KEYBOARD, one_time_keyboard=True)
 RESULTS_MARKUP = ReplyKeyboardMarkup(RESULTS_KEYBOARD, one_time_keyboard=True)
 db = database_class.DataBase(database_connection_settings)
 
-def start(bot, update):
+async def start(bot, update):
     """Starts conversation"""
     bot.send_message(chat_id=update.message.chat_id,
                      text="Привет! Я - Бот ScienceCamp и я помогу вам в ваших исследованиях."
@@ -80,7 +81,7 @@ def start(bot, update):
 
     return IDLE
 
-def facts_to_str(user_data):
+async def facts_to_str(user_data):
     """Converts facts into str"""
     facts = list()
 
@@ -89,7 +90,7 @@ def facts_to_str(user_data):
 
     return "\n".join(facts).join(['\n', '\n'])
 
-def cite_it(bot, chat_id, doi):
+async def cite_it(bot, chat_id, doi):
     """Returns citation for given DOI"""
     # headers = {"content-type":"application/x-bibtex"}
     # resp = requests.get("https://doi.org/" + DOI, headers=headers)
@@ -120,7 +121,7 @@ def cite_it(bot, chat_id, doi):
         return SEARCH_RESULTLS
 
 #@BotParser.check_url
-def download_it(bot, update, article_url, doi, filename, context=None, user_data=None):
+async def download_it(bot, update, article_url, doi, filename, context=None, user_data=None):
     """downloads a file via url and writes it to the local storage with given name"""
     session = requests.Session()
     response = session.get(article_url)
@@ -155,7 +156,7 @@ def download_it(bot, update, article_url, doi, filename, context=None, user_data
         #user_data['capcha-response'] = response
         return TYPING_REPLY
 
-def parsing_capcha(bot, update, context=None, user_data=None):
+async def parsing_capcha(bot, update, context=None, user_data=None):
     """Handles capcha input"""
     response = user_data['capcha-response']
     filename = user_data['file-name']
@@ -222,7 +223,7 @@ def parsing_capcha(bot, update, context=None, user_data=None):
             user_data['count-tries'] = 0
             return SEARCH_RESULTLS
 
-def results_to_str(search_results):
+async def results_to_str(search_results):
     """Converts search results into str"""
     html_pages = []
     with open('templates/response_template.md', 'r', encoding='UTF-8') as template_file:
@@ -253,7 +254,7 @@ def results_to_str(search_results):
                                      doi, annotation, download_link]])
     return html_pages
 
-def render_message(key_words, title, authors, doi, annotation, download_link):
+async def render_message(key_words, title, authors, doi, annotation, download_link):
     """Renders metadata into telegram message"""
     with open('templates/response_template.md', 'r', encoding='UTF-8') as ifile:
         template = ifile.read()
@@ -268,14 +269,14 @@ def render_message(key_words, title, authors, doi, annotation, download_link):
         doi, [key_words, title, authors, \
             doi, annotation, download_link]
 
-def back_to_idle(bot, update, context=None, user_data=None):
+async def back_to_idle(bot, update, context=None, user_data=None):
     """Returns to idle state"""
     bot.send_message(chat_id=update.message.chat_id,
                      text='Возвращаюсь в простой поиск.',
                      reply_markup=SEARCH_MARKUP)
     return IDLE
 
-def received_search_results(bot, update, context=None, user_data=None):
+async def received_search_results(bot, update, context=None, user_data=None):
     print('Ага!')
     """Shows results of the search one by one"""
     text = update.message.text
@@ -393,7 +394,7 @@ def received_search_results(bot, update, context=None, user_data=None):
                                  text="Это первый из найденных результатов.")
         return SEARCH_RESULTLS
 
-def idle_callback(bot, update, context=None, user_data=None):
+async def idle_callback(bot, update, context=None, user_data=None):
     """Commits search type"""
     # user_data = context.user_data
     current_action = update.message.text
@@ -456,7 +457,7 @@ def idle_callback(bot, update, context=None, user_data=None):
                          reply_markup=SEARCH_MARKUP)
         user_data['Запрос'] = update.message.text
 
-def done(bot, update, context=None, user_data=None):
+async def done(bot, update, context=None, user_data=None):
     """Ends conversation."""
     # user_data = context.user_data
     if 'choice' in user_data:
@@ -468,7 +469,7 @@ def done(bot, update, context=None, user_data=None):
     user_data.clear()
     return ConversationHandler.END
 
-def error(bot, update, context=None, user_data=None):
+async def error(bot, update, context=None, user_data=None):
     """Log Errors caused by Updates."""
     LOGGER.warning('Update "%s" caused error "%s"', update, error)
 
@@ -476,7 +477,7 @@ def error(bot, update, context=None, user_data=None):
 #     parser = EntryPoint.MainParser(search_settings)
 #     parser.start_console()
 
-def main():
+async def main():
     """Bot's main function."""
 
     # Create the Updater and pass it your bot's token.
@@ -536,4 +537,4 @@ def main():
     updater.idle()
 
 if __name__ == "__main__":
-    main()
+    asyncio.run(main())
