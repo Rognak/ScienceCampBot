@@ -304,6 +304,13 @@ def received_search_results(bot, update, context=None, user_data=None):
                                            max_articles=2
                                           )
                     print('Возвращенный результат: ' + str(results))
+                    while results is None:
+                        user_data['start-page'] += 1
+                        results = parser.parse(user_data['Запрос'],
+                                               update.message.chat_id,
+                                               start_page=user_data['start-page'],
+                                               max_articles=2
+                                              )
                     user_data['results'] += results
             user_data['pagination'] += 1
             result = user_data['results'][user_data['pagination']]
