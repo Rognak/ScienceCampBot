@@ -125,7 +125,10 @@ class BotParser:
         d2 = {str(results[i:i + 1, 3][0]): results[i:i + 1, :] for i in range(len(results))}
         d1 = {str(stored[i:i + 1, 3][0]): stored[i:i + 1, :5] for i in range(len(stored))}
         value = {k: d2[k] for k in set(d2) - set(d1)}
-        return self._stack_and_reshape(value.values(), (len(value.values()), 6))
+        if len(value.values()) == 0:
+            return None
+        else:
+            return self._stack_and_reshape(value.values(), (len(value.values()), 6))
 
     def _prepare_keywords(self, keywords):
         keywords = keywords.lower()
@@ -154,12 +157,14 @@ class BotParser:
             with requests.session() as session:
                 connection = self.database.make_connection()
                 for source in self.parser_settings['sources']:
+                    print(start_page)
                     query = self._make_url(source, query_string, start_page=start_page, max_articles=max_articles)
                     response = session.get(query)
                     soup = BeautifulSoup(response.text, 'lxml')
 
                     # получаем спиоск имеющихся статей (если есть) и заносим в бд уникальные
                     results = self._get_results(source, soup, self.database, query_string, doi_from_db, connection)
+                    print(results)
                     all_results = self.database.select_by_value(connection, 'search_results', 'key_words', query_string)
                     stored_results = self.database.select_by_value(connection, 'users_stored_articles', 'chat_id',
                                                               chat_id)
@@ -168,12 +173,16 @@ class BotParser:
                         for i in range(len(results)):
                             if results[i][3] in stored_results[:, 3]:
                                 indexes.append(i)
-                        prepared_results = np.vstack((all_results, results[indexes]))
+                        results = np.vstack((all_results, results[indexes]))
+                        prepared_results = self._prepare_results(results, stored_results)
                     else:
-                        prepared_results = all_results
+                        results = self._prepare_results(all_results, stored_results)
+                        prepared_results = results
 
                 self.database.close_connection(connection)
-                return prepared_results
+                print(prepared_results)
+                print(prepared_results.tolist())
+                return prepared_results.tolist()
 
 
         query_string = self._prepare_keywords(keywords)
@@ -194,17 +203,23 @@ class BotParser:
         #self.database.close_connection(connection)
 
         if query_string in keywords:
+            print('Нашел')
             if start_page == 0:
                 all_results = self.database.select_by_value(connection, 'search_results', 'key_words', query_string)
                 stored_results = self.database.select_by_value(connection, 'users_stored_articles', 'key_words',
                                                                query_string, ('chat_id', chat_id))
+
                 results = self._prepare_results(all_results, stored_results)
                 self.database.close_connection(connection)
                 print(results)
-                return results
+                if results is not None:
+                    return results.tolist()
+                else:
+                    return None
             else:
-                make_request(start_page)
+                return make_request(start_page)
         else:
+            print('Не нашел')
             return make_request(start_page)
 
 
