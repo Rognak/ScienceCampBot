@@ -27,7 +27,7 @@ from BusinessLogic import database_class
 
 # import crossref
 from crossref.restful import Works
-import doi2bib
+from doi2bib.crossref import get_bib
 
 from AppSettings import *
 # from BusinessLogic import EntryPoint
@@ -103,7 +103,7 @@ def cite_it(bot, chat_id, doi):
         return SEARCH_RESULTLS
     else:
         record = works.doi(doi)
-        found, meta_bib = doi2bib.crossref.get_bib(doi)
+        found, meta_bib = get_bib(doi)
         if not found:
             bot.send_message(chat_id=chat_id,
                              text="Документ не найден..."
