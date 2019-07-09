@@ -193,8 +193,8 @@ async def parsing_capcha(bot, update, context=None, user_data=None):
             DataBase.update_url(connection, article_url, new_article_url)
             db.close_connection(connection)
 
-            res = download_it(bot, update, new_article_url,
-                              doi, user_data['file-name'], user_data=user_data)
+            res = await download_it(bot, update, new_article_url,
+                                    doi, user_data['file-name'], user_data=user_data)
             return res
 
         if user_data['count-tries'] < 3:
@@ -284,7 +284,7 @@ async def received_search_results(bot, update, context=None, user_data=None):
         if user_data.get('Запрос'):
             user_request = user_data['Запрос']
         else:
-            user_request = facts_to_str(user_data)
+            user_request = await facts_to_str(user_data)
         bot.send_message(chat_id=update.message.chat_id,
                          text="Ничего не найдено для '{}'...".format(
                              user_request), reply_markup=SEARCH_MARKUP)
@@ -322,7 +322,7 @@ async def received_search_results(bot, update, context=None, user_data=None):
                              text="Может вам подойдет это:\n",
                              reply_markup=RESULTS_MARKUP)
             bot.send_message(chat_id=update.message.chat_id,
-                                text=render_message(key_words, title, authors, doi, annotation, download_link)[0],
+                                text=await render_message(key_words, title, authors, doi, annotation, download_link)[0],
                             #  parse_mode="MARKDOWN"
                             )
             bot.send_chat_action(chat_id=update.message.chat_id, action=telegram.ChatAction.TYPING)
@@ -345,12 +345,12 @@ async def received_search_results(bot, update, context=None, user_data=None):
                 bot.send_chat_action(chat_id=update.message.chat_id,
                                     action=telegram.ChatAction.UPLOAD_DOCUMENT)
                 #hashlib.md5(bytes(doi, encoding='utf-8')).hexdigest()
-                res = download_it(bot, update,
-                                  render_message(key_words, title, authors,
-                                                 doi, annotation, download_link)[1],
-                                  doi,
-                                  doi.replace('/', '-'),
-                                  user_data=user_data)
+                res = await download_it(bot, update,
+                                        await render_message(key_words, title, authors,
+                                                             doi, annotation, download_link)[1],
+                                                             doi,
+                                                             doi.replace('/', '-'),
+                                                             user_data=user_data)
                 return res
             except telegram.TelegramError:
                 bot.send_message(chat_id=update.message.chat_id,
@@ -360,7 +360,7 @@ async def received_search_results(bot, update, context=None, user_data=None):
         elif text == 'Цитировать (BibTex)':
             print("Я тут")
             key_words, title, authors, doi, annotation, download_link = user_data['results'][user_data['pagination']]
-            return cite_it(bot, update.message.chat_id, doi)
+            return awaitcite_it(bot, update.message.chat_id, doi)
             # try:
             #     cite_it(bot, update.message.chat_id, doi)
             #     return SEARCH_RESULTLS
@@ -377,10 +377,10 @@ async def received_search_results(bot, update, context=None, user_data=None):
                                  text="Может вам подойдет это:\n",
                                  reply_markup=RESULTS_MARKUP)
                 bot.send_message(chat_id=update.message.chat_id,
-                                 text=render_message(key_words, title, authors, doi, annotation, download_link)[0],
+                                 text=await render_message(key_words, title, authors, doi, annotation, download_link)[0],
                                 #  parse_mode="MARKDOWN"
                                 )
-                key_words, title, authors, doi, annotation, scihub_url = render_message(key_words, title, authors, doi, annotation, download_link)[-1]
+                key_words, title, authors, doi, annotation, scihub_url = await render_message(key_words, title, authors, doi, annotation, download_link)[-1]
                 parser = BotParser(search_settings, db)
                 parser.register_watched(key_words, title,
                                 authors, doi, annotation, update.message.chat_id, scihub_url)
@@ -429,13 +429,13 @@ async def idle_callback(bot, update, context=None, user_data=None):
                              reply_markup=RESULTS_MARKUP,
                              )
             bot.send_message(chat_id=update.message.chat_id,
-                             text=render_message(key_words, title, authors, 
-                                                 doi, annotation, download_link)[0],
+                             text=await render_message(key_words, title, authors, 
+                                                       doi, annotation, download_link)[0],
                             )
 
             # print(result[-1])
-            key_words, title, authors, doi, annotation, scihub_url = render_message(key_words, title, authors, 
-                                                                                    doi, annotation, download_link)[-1]
+            key_words, title, authors, doi, annotation, scihub_url = await render_message(key_words, title, authors, 
+                                                                                          doi, annotation, download_link)[-1]
             parser.register_watched(key_words, title,
                                 authors, doi, annotation, update.message.chat_id, scihub_url)
             bot.send_message(chat_id=update.message.chat_id,
