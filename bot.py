@@ -410,6 +410,13 @@ def idle_callback(bot, update, context=None, user_data=None):
                                    user_data['start-page'],
                                    2
                                   )
+            while results is None:
+                user_data['start-page'] += 1
+                results = parser.parse(user_data['Запрос'],
+                                       update.message.chat_id,
+                                       start_page=user_data['start-page'],
+                                       max_articles=2
+                                      )
             user_data['results'] = results
             user_data['pagination'] = 0
             key_words, title, authors, doi, annotation, download_link = user_data['results'][user_data['pagination']]
