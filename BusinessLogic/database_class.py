@@ -108,3 +108,12 @@ class DataBase:
         connection.commit()
         cursor.close()
 
+    def get_start_page(self, connection, chat_id):
+        cursor = connection.cursor()
+
+        cursor.execute("""SELECT MAX(start_page) FROM users_stored_articles WHERE chat_id = '%s'""" % chat_id)
+        result = cursor.fetchone()
+
+        cursor.close()
+        return result
+

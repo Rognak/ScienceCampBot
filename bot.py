@@ -313,7 +313,8 @@ def received_search_results(bot, update, context=None, user_data=None):
                     #TODO: Нужно добавить в поиск "перелистывание страниц", а пока вызывается старая функция parse
                     results = parser.parse(user_data['Запрос'],
                                            update.message.chat_id,
-                                           50
+                                           start_page=0,
+                                           max_articles=5
                                           )
                     user_data['results'] += results
             user_data['pagination'] += 1
@@ -410,7 +411,8 @@ def idle_callback(bot, update, context=None, user_data=None):
             parser = BotParser(search_settings, db)
             results = parser.parse(user_data['Запрос'],
                                    update.message.chat_id,
-                                   50
+                                   0,
+                                   5
                                   )
             user_data['results'] = results
             user_data['pagination'] = 0

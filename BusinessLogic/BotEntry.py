@@ -16,7 +16,7 @@ class BotParser:
         self.parser_settings = settings
         self.database = database
 
-    def _make_url(self, url, query_string, max_articles):
+    def _make_url(self, url, query_string, start_page, max_articles):
 
         """Данная функция служит для преобразования строки в корректный GET запрос"""
         if url == search_sources[0]:
@@ -28,7 +28,7 @@ class BotParser:
 
             query += query_string
 
-            return query + '&startPage=0&pageSize={}'.format(max_articles)
+            return query + '&startPage={}&pageSize={}'.format(start_page, max_articles)
 
     def _get_results(self, source, soup, database, key_words, doi_from_db, connection):
         """Данная функция обрабатывает статьи"""
@@ -116,34 +116,6 @@ class BotParser:
         id = hub.find('input', {'name': 'id'})['value']
         return artcle_url[7:].split('/')[1] + image, id
 
-    @staticmethod
-    def check_url(function):
-
-        def wrapper(bot, update, article_url, doi, filename, context=None, user_data=None):
-            db = DataBase(database_connection_settings)
-            connection = db.make_connection()
-            print('im here bitch')
-            print(article_url)
-
-            session = requests.Session()
-            headers = {'User-Agent': 'Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:67.0) Gecko/20100101 Firefox/67.0'}
-            article = session.get(article_url, headers=headers)
-
-            print(article.status_code)
-
-            if article.status_code == 404:
-                print('getting 404')
-                new_article_url = BotParser._parse_scihub(doi)
-                DataBase.update_url(connection, new_article_url)
-                db.close_connection(connection)
-                return function(bot, update, new_article_url, doi, filename, context=context, user_data=user_data)
-
-            else:
-                db.close_connection(connection)
-                return function(bot, update, article_url, doi, filename, context=context, user_data=user_data)
-
-        return wrapper
-
     def _stack_and_reshape(self, array, shape):
         stacked = np.stack(array)
         stacked = stacked.reshape(shape[0], shape[1])
@@ -176,35 +148,13 @@ class BotParser:
         database.insert_to_stored(connection, key_words, title, authors, doi, annotation, chat_id, scihub_url)
         database.close_connection(connection)
 
-    def parse(self, keywords, chat_id, max_articles):
+    def parse(self, keywords, chat_id, start_page, max_articles):
 
-        query_string = self._prepare_keywords(keywords)
-        checked_keywords = self._check_keywords(query_string)
-        query_string = ', '.join(self._prepare_keywords(keywords))
-        print(query_string)
-        print(checked_keywords)
-        # print(query_string)
-
-        if len(checked_keywords) != 0:
-            # print('Я не знаю таких слов: ' + ', '.join(checked_keywords))
-            return 0
-            #TODO need to write correct return
-
-        connection = self.database.make_connection()
-        keywords = self.database.get_keywords(connection, query_string)
-        doi_from_db = self.database.get_doi(connection)
-
-        with requests.Session() as session:
-            if query_string in keywords:
-                all_results = self.database.select_by_value(connection, 'search_results', 'key_words', query_string)
-                stored_results = self.database.select_by_value(connection, 'users_stored_articles', 'key_words',
-                                                          query_string, ('chat_id', chat_id))
-                results = self._prepare_results(all_results, stored_results)
-                self.database.close_connection(connection)
-                return results
-            else:
+        def make_request(start_page=0):
+            with requests.session() as session:
+                connection = self.database.make_connection()
                 for source in self.parser_settings['sources']:
-                    query = self._make_url(source, query_string, max_articles=max_articles)
+                    query = self._make_url(source, query_string, start_page=start_page, max_articles=max_articles)
                     response = session.get(query)
                     soup = BeautifulSoup(response.text, 'lxml')
 
@@ -222,8 +172,40 @@ class BotParser:
                     else:
                         prepared_results = all_results
 
-                self.database.close_connection()
+                self.database.close_connection(connection)
                 return prepared_results
+
+
+        query_string = self._prepare_keywords(keywords)
+        checked_keywords = self._check_keywords(query_string)
+        query_string = ', '.join(self._prepare_keywords(keywords))
+        print(query_string)
+        print(checked_keywords)
+        # print(query_string)
+
+        if len(checked_keywords) != 0:
+            # print('Я не знаю таких слов: ' + ', '.join(checked_keywords))
+            return 0
+            #TODO need to write correct return
+
+        connection = self.database.make_connection()
+        keywords = self.database.get_keywords(connection, query_string)
+        doi_from_db = self.database.get_doi(connection)
+        #self.database.close_connection(connection)
+
+        if query_string in keywords:
+            if start_page == 0:
+                all_results = self.database.select_by_value(connection, 'search_results', 'key_words', query_string)
+                stored_results = self.database.select_by_value(connection, 'users_stored_articles', 'key_words',
+                                                               query_string, ('chat_id', chat_id))
+                results = self._prepare_results(all_results, stored_results)
+                self.database.close_connection(connection)
+                print(results)
+                return results
+            else:
+                make_request(start_page)
+        else:
+            return make_request(start_page)
 
 
 
