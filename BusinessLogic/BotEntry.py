@@ -44,7 +44,8 @@ class BotParser:
                 try:
                     public_date = doi.find('span', {'class': 'pub-date-value'}).get_text().split(' ')[-1]
                 except:
-                    public_date = 'No pub data'
+                    continue
+
                 doi = re.search(patterns['doi'], doi.contents[-2].get_text())
                 doi = doi.group(0)
 
@@ -62,7 +63,10 @@ class BotParser:
                                 author_test = re.sub(r"b\ufeff\b", '', author_test)
                             authors.append(author_test)
                         except:
-                            authors.append('I dont know author')
+                            authors = None
+
+                    if authors is None:
+                        continue
 
                     sci_author = authors[0].split(' ')[-1]
                     main_author = re.findall(patterns['author'], sci_author)[0].lower()
@@ -72,7 +76,7 @@ class BotParser:
                     try:
                         annotation = articles[i].find('div', {"class": "accordion__content"}).get_text()
                     except:
-                        annotation = 'No annotation'
+                        continue
 
                     if main_author != 'author':
                         try:
@@ -180,9 +184,18 @@ class BotParser:
                         prepared_results = results
 
                 self.database.close_connection(connection)
-                print(prepared_results)
-                print(prepared_results.tolist())
-                return prepared_results.tolist()
+
+                if prepared_results is not None:
+                    return prepared_results.tolist()
+                else:
+                    return None
+                # print(prepared_results)
+                # print(type(prepared_results))
+                # print(prepared_results)
+                # print(prepared_results.tolist())
+                #
+                # #print(type(prepared_results))
+                # return prepared_results.tolist()
 
 
         query_string = self._prepare_keywords(keywords)
